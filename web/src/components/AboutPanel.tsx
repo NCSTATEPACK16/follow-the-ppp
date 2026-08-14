@@ -74,6 +74,19 @@ export function AboutPanel({ onClose }: AboutPanelProps) {
           elsewhere; this map does not attempt to identify it, and a name and dollar figure
           appearing here should not be read as an accusation.
         </p>
+
+        <h3>Why the map isn't green and red</h3>
+        <p>
+          Forgiven loans are blue; loans not recorded as forgiven are orange.
+          Most maps of this data use green and red, and we deliberately don't.
+          Two reasons. First, green and red are the single worst pair for the
+          roughly 8% of men with red-green color vision deficiency — measured
+          against this basemap, the green and red used by comparable sites are
+          nearly indistinguishable under deuteranopia. Second, green
+          "good" / red "bad" scores each loan, and that framing is wrong: a
+          loan that wasn't forgiven is frequently just a loan that was repaid.
+          Blue and orange state the difference without judging it.
+        </p>
         </div>
       </div>
     </div>

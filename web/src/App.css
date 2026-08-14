@@ -457,27 +457,29 @@ body,
   display: inline-block;
 }
 
-.legend-swatch-green {
-  background: #1a8f5a;
+.legend-swatch-forgiven {
+  background: var(--pin-forgiven);
 }
 
-.legend-swatch-red {
-  background: #c0392b;
+.legend-swatch-unforgiven {
+  background: var(--pin-unforgiven);
 }
 
-.legend-swatch-gold {
-  background: #f0b400;
-  border: 1.5px solid #7a5b00;
+/* Largest loans keep their status hue — the emphasis is size + ring, not a
+   third color. The swatch shows the ring. */
+.legend-swatch-top {
+  background: var(--pin-forgiven);
+  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--border);
 }
 
 .legend-swatch-hollow {
   background: transparent;
-  border: 1.5px solid #555555;
+  border: 1.5px solid var(--text-secondary);
 }
 
 .legend-swatch-county {
   border-radius: 3px;
-  background: #7fa8d9;
+  background: #3987e5;
 }
 
 /* Focus is never transitioned — it must be instant. */

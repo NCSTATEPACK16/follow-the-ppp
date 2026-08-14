@@ -38,9 +38,9 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
 
         <h3>Colors</h3>
         <ul className="help-legend">
-          <li><span className="legend-swatch legend-swatch-green" /> Forgiven loan</li>
-          <li><span className="legend-swatch legend-swatch-red" /> Not forgiven (or undecided)</li>
-          <li><span className="legend-swatch legend-swatch-gold" /> One of the largest loans ($5M+) — always shown, at any zoom</li>
+          <li><span className="legend-swatch legend-swatch-forgiven" /> Forgiven loan</li>
+          <li><span className="legend-swatch legend-swatch-unforgiven" /> Not forgiven (or undecided)</li>
+          <li><span className="legend-swatch legend-swatch-top" /> One of the largest loans ($5M+) — drawn larger with a white ring, always shown at any zoom</li>
           <li><span className="legend-swatch legend-swatch-hollow" /> Approximate location (ZIP centroid only); solid = exact address</li>
           <li><span className="legend-swatch legend-swatch-county" /> County shading — darker means more total dollars approved there</li>
         </ul>
