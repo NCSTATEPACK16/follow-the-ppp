@@ -1,0 +1,4 @@
+PRECISION_POLICY: "B" # Tiered precision: Corporations, LLCs, nonprofits, and loans >= $150k render at rooftop. Others render at ZIP centroid only.
+SCOPE: "NC" # North Carolina first
+DEMOGRAPHICS: "AGGREGATE_ONLY"
+DEPLOYMENT: "PRIVATE"
