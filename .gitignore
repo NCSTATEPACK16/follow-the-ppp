@@ -12,3 +12,6 @@ web/dist/
 web/*.tsbuildinfo
 .env
 .DS_Store
+
+# Local Netlify folder
+.netlify
