@@ -110,6 +110,32 @@ export async function searchByName(query: string, limit = 50): Promise<LoanRecor
   return result.toArray().map((r) => rowToLoan(r.toJSON() as Record<string, unknown>));
 }
 
+/** The biggest loans in the index — used to seed the "Largest loans" panel so there's something to see before any search. */
+export async function getTopLoans(
+  minAmount = 5_000_000,
+  limit = 200,
+): Promise<LoanRecord[]> {
+  const conn = await getConn();
+  const result = await conn.query(`
+    SELECT * FROM parquet_scan('search_index.parquet')
+    WHERE approved_amount >= ${minAmount}
+    ORDER BY approved_amount DESC
+    LIMIT ${limit}
+  `);
+  return result.toArray().map((r) => rowToLoan(r.toJSON() as Record<string, unknown>));
+}
+
+/** USING SAMPLE takes a single-pass reservoir sample instead of sorting/scanning the whole table. */
+export async function getRandomLoan(): Promise<LoanRecord | null> {
+  const conn = await getConn();
+  const result = await conn.query(`
+    SELECT * FROM parquet_scan('search_index.parquet')
+    USING SAMPLE 1 ROWS
+  `);
+  const rows = result.toArray();
+  return rows.length ? rowToLoan(rows[0].toJSON() as Record<string, unknown>) : null;
+}
+
 export async function getLoanByNumber(loanNumber: string): Promise<LoanRecord | null> {
   const conn = await getConn();
   const escaped = loanNumber.replace(/'/g, "''");

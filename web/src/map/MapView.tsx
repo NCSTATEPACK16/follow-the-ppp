@@ -6,12 +6,24 @@ import { buildMapStyle, BASEMAP_STYLE_URL } from "./style";
 import { buildLoansFilter, filtersActive } from "./filters";
 import { DEFAULT_VIEW } from "../lib/config";
 import type { DeepLinkState } from "../lib/url";
-import type { Filters, LoanTileProps } from "../types";
+import type { Filters, LoanRecord, LoanTileProps } from "../types";
 
 ensurePmtilesProtocol();
 
+function topLoansToGeoJson(loans: LoanRecord[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: loans.map((loan) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [loan.lng, loan.lat] },
+      properties: { id: loan.loan_number },
+    })),
+  };
+}
+
 interface MapViewProps {
   filters: Filters;
+  topLoans: LoanRecord[];
   initialView: DeepLinkState;
   onLoanClick: (props: LoanTileProps) => void;
   onViewChange: (v: { zoom: number; lat: number; lng: number }) => void;
@@ -20,6 +32,7 @@ interface MapViewProps {
 
 export function MapView({
   filters,
+  topLoans,
   initialView,
   onLoanClick,
   onViewChange,
@@ -35,10 +48,12 @@ export function MapView({
   const onLoanClickRef = useRef(onLoanClick);
   const onViewChangeRef = useRef(onViewChange);
   const onMapReadyRef = useRef(onMapReady);
+  const topLoansRef = useRef(topLoans);
   useEffect(() => {
     onLoanClickRef.current = onLoanClick;
     onViewChangeRef.current = onViewChange;
     onMapReadyRef.current = onMapReady;
+    topLoansRef.current = topLoans;
   });
 
   useEffect(() => {
@@ -77,6 +92,42 @@ export function MapView({
           map.getCanvas().style.cursor = "";
         });
 
+        // top-loans-circle carries only the loan id (see topLoansToGeoJson) —
+        // that's all onLoanClick needs, since DetailCard re-fetches the full
+        // record by loan number regardless of how it was opened.
+        map.on("click", "top-loans-circle", (e) => {
+          const feature = e.features?.[0];
+          if (feature) {
+            onLoanClickRef.current({ id: feature.properties?.id } as LoanTileProps);
+          }
+        });
+        map.on("mouseenter", "top-loans-circle", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "top-loans-circle", () => {
+          map.getCanvas().style.cursor = "";
+        });
+
+        const addTopLoansLayer = () => {
+          map.addSource("top-loans", {
+            type: "geojson",
+            data: topLoansToGeoJson(topLoansRef.current),
+          });
+          map.addLayer({
+            id: "top-loans-circle",
+            type: "circle",
+            source: "top-loans",
+            paint: {
+              "circle-radius": 7,
+              "circle-color": "#f0b400",
+              "circle-stroke-width": 1.5,
+              "circle-stroke-color": "#7a5b00",
+            },
+          });
+        };
+        if (map.isStyleLoaded()) addTopLoansLayer();
+        else map.once("load", addTopLoansLayer);
+
         onMapReadyRef.current(map);
       });
 
@@ -106,6 +157,17 @@ export function MapView({
     if (map.isStyleLoaded()) apply();
     else map.once("load", apply);
   }, [filters]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const source = map.getSource("top-loans") as maplibregl.GeoJSONSource | undefined;
+      source?.setData(topLoansToGeoJson(topLoans));
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once("load", apply);
+  }, [topLoans]);
 
   return <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />;
 }

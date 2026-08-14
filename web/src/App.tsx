@@ -1,13 +1,14 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Map as MlMap } from "maplibre-gl";
 import { MapView } from "./map/MapView";
 import { SearchBox } from "./components/SearchBox";
 import { FilterPanel } from "./components/FilterPanel";
+import { TopLoansPanel } from "./components/TopLoansPanel";
 import { DetailCard } from "./components/DetailCard";
 import { Footer } from "./components/Footer";
 import { AboutPanel } from "./components/AboutPanel";
 import { HelpPanel } from "./components/HelpPanel";
-import { getLoanByNumber } from "./lib/search";
+import { getLoanByNumber, getRandomLoan, getTopLoans } from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
 import { filtersActive } from "./map/filters";
@@ -31,6 +32,12 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [lastSearchResults, setLastSearchResults] = useState<LoanRecord[]>([]);
   const [zoom, setZoom] = useState(initialLink.zoom);
+  const [topLoans, setTopLoans] = useState<LoanRecord[]>([]);
+  const [randomLoading, setRandomLoading] = useState(false);
+
+  useEffect(() => {
+    getTopLoans().then(setTopLoans);
+  }, []);
 
   const mapRef = useRef<MlMap | null>(null);
   const viewRef = useRef({
@@ -57,11 +64,23 @@ export default function App() {
     [selectedLoan],
   );
 
-  const handleSearchSelect = useCallback((loan: LoanRecord) => {
+  const flyToAndSelect = useCallback((loan: LoanRecord) => {
     setSelectedLoan({ loanNumber: loan.loan_number, preview: loan });
     mapRef.current?.flyTo({ center: [loan.lng, loan.lat], zoom: 13 });
     writeDeepLink({ loan: loan.loan_number, ...viewRef.current, lat: loan.lat, lng: loan.lng });
   }, []);
+
+  const handleSearchSelect = flyToAndSelect;
+
+  const handleRandomLoan = useCallback(async () => {
+    setRandomLoading(true);
+    try {
+      const loan = await getRandomLoan();
+      if (loan) flyToAndSelect(loan);
+    } finally {
+      setRandomLoading(false);
+    }
+  }, [flyToAndSelect]);
 
   const handleTileClick = useCallback((props: LoanTileProps) => {
     setSelectedLoan({ loanNumber: props.id, preview: null });
@@ -95,6 +114,7 @@ export default function App() {
     <div className="app-shell">
       <MapView
         filters={filters}
+        topLoans={topLoans}
         initialView={initialLink}
         onLoanClick={handleTileClick}
         onViewChange={handleViewChange}
@@ -115,6 +135,15 @@ export default function App() {
           </button>
         </div>
         <SearchBox onSelect={handleSearchSelect} onResultsChange={setLastSearchResults} />
+        <button
+          type="button"
+          className="random-button"
+          onClick={handleRandomLoan}
+          disabled={randomLoading}
+        >
+          {randomLoading ? "Finding one…" : "🎲 Random loan"}
+        </button>
+        <TopLoansPanel onSelect={flyToAndSelect} />
         <FilterPanel filters={filters} onChange={setFilters} />
         {filtersActive(filters) && zoom < LOANS_MIN_ZOOM && (
           <p className="filter-zoom-notice">

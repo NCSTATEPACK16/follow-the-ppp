@@ -1,5 +1,10 @@
 data/
 tiles/
+# Local dev symlinks (see scripts/link-local-data.sh) — not matched by the
+# "data/"/"tiles/" patterns above since git's ignore matcher treats symlinks
+# as files, not directories.
+web/public/data
+web/public/tiles
 *.duckdb
 .venv/
 web/node_modules/
