@@ -492,3 +492,89 @@ body,
 .top-loans-toggle:active {
   transform: translateY(0);
 }
+
+.map-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 40px;
+  z-index: 10;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+  box-shadow: var(--elev-panel);
+  padding: 8px 26px 8px 10px;
+  font: var(--type-micro);
+  color: var(--text-secondary);
+}
+
+.map-legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.map-legend-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.map-legend-chip {
+  position: absolute;
+  left: 12px;
+  bottom: 40px;
+  z-index: 10;
+  background: var(--surface-1);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--elev-panel);
+  padding: 5px 12px;
+  font: var(--type-micro);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* Shared by the legend and by LoanRow, so list and map use one encoding. */
+.legend-dot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot[data-state="forgiven"] {
+  background: var(--pin-forgiven);
+}
+
+.legend-dot[data-state="unforgiven"] {
+  background: var(--pin-unforgiven);
+}
+
+.legend-dot-approx {
+  background: transparent;
+  border: 1.5px solid var(--text-secondary);
+}
+
+/* Below 640px the sidebar already dominates; collapse to the chip. */
+@media (max-width: 640px) {
+  .map-legend {
+    display: none;
+  }
+}

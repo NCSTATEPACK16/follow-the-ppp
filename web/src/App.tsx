@@ -9,6 +9,7 @@ import { DetailCard } from "./components/DetailCard";
 import { Footer } from "./components/Footer";
 import { AboutPanel } from "./components/AboutPanel";
 import { HelpPanel } from "./components/HelpPanel";
+import { MapLegend } from "./components/MapLegend";
 import { getLoanByNumber, getRandomLoan, getTopLoans } from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
@@ -177,6 +178,7 @@ export default function App() {
         </div>
       )}
 
+      <MapLegend />
       <Footer onAboutClick={() => setAboutOpen(true)} />
       {aboutOpen && <AboutPanel onClose={() => setAboutOpen(false)} />}
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
