@@ -154,7 +154,7 @@ export default function App() {
         >
           {randomLoading ? "Finding one…" : "🎲 Random loan"}
         </button>
-        <TopLoansPanel onSelect={flyToAndSelect} />
+        <TopLoansPanel loans={topLoans} onSelect={flyToAndSelect} />
         <FilterPanel filters={filters} onChange={setFilters} />
         {filtersActive(filters) && zoom < LOANS_MIN_ZOOM && (
           <p className="filter-zoom-notice">
