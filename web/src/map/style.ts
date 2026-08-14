@@ -43,15 +43,15 @@ export function buildMapStyle(basemap: StyleSpecification): StyleSpecification {
             ["linear"],
             ["get", "sum_approved"],
             0,
-            "#eef2f7",
+            "#cde2fb",
             1_000_000,
-            "#c9dcf0",
+            "#86b6ef",
             10_000_000,
-            "#7fa8d9",
+            "#3987e5",
             100_000_000,
-            "#3f6fb0",
+            "#1c5cab",
             1_000_000_000,
-            "#1a3f7a",
+            "#0d366b",
           ],
           "fill-opacity": 0.75,
           "fill-outline-color": "#ffffff",
@@ -78,10 +78,22 @@ export function buildMapStyle(basemap: StyleSpecification): StyleSpecification {
             10000,
             22,
           ],
-          "circle-color": "#3f6fb0",
-          "circle-opacity": 0.6,
+          "circle-color": "#1c5cab",
+          // Cross-fade out as individual pins fade in (loans-circle minzoom 9).
+          // Without this, blue ZIP aggregates and blue "forgiven" pins overlap
+          // at z9-10 and read as the same encoding. Also one fewer layer
+          // drawing at z10.
+          "circle-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            9,
+            0.6,
+            10,
+            0,
+          ],
           "circle-stroke-width": 1,
-          "circle-stroke-color": "#1a3f7a",
+          "circle-stroke-color": "#0d366b",
         },
       },
       {
@@ -106,12 +118,17 @@ export function buildMapStyle(basemap: StyleSpecification): StyleSpecification {
             30000,
             18,
           ],
-          // Color by forgiveness status: forgiven (f > 0) vs. not.
+          // Identity by forgiveness state. Blue/orange, not green/red:
+          // green/red measured CVD deltaE 6.0 under deuteranopia (unusable
+          // for ~8% of male visitors) and green="good"/red="bad" imposes a
+          // moral reading the project explicitly disowns — an unforgiven
+          // loan is frequently just a loan that was repaid.
+          // See docs/design-spec.md §3.2.
           "circle-color": [
             "case",
             [">", ["get", "f"], 0],
-            "#1a8f5a",
-            "#c0392b",
+            "#2a78d6",
+            "#eb6834",
           ],
           // Approximate-precision points (zip_centroid / street) render
           // hollow and translucent so they never look identical to a
@@ -130,7 +147,7 @@ export function buildMapStyle(basemap: StyleSpecification): StyleSpecification {
             1.5,
             0,
           ],
-          "circle-stroke-color": "#555555",
+          "circle-stroke-color": "#52514e",
         },
       },
     ],
