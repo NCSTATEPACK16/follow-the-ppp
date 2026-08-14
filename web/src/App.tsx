@@ -129,7 +129,14 @@ export default function App() {
 
       <div className="app-panel app-panel-left">
         <div className="app-panel-header">
-          <h1>PPP Loan Map</h1>
+          <div>
+            <h1>PPP Loan Map</h1>
+            {/* Figures computed in reports/02_profile.md (Stage 2), not
+                estimated: 11,365,188 loans, $787.5B approved. */}
+            <p className="app-subtitle tnum">
+              11.4M loans · $787B approved · 2020–2021
+            </p>
+          </div>
           <button
             type="button"
             className="gear-button"

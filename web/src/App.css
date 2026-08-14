@@ -694,3 +694,9 @@ body,
   padding: 8px 10px;
   margin: 14px 0 0;
 }
+
+.app-subtitle {
+  font: var(--type-micro);
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
