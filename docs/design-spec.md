@@ -498,14 +498,35 @@ dark mode is later a matter of filling in one `@media` block, not a rewrite.
 
 The site is currently snappy. These are the numbers that must not regress:
 
-| Metric | Budget | How to check |
+| Metric | Budget | Measured 2026-08-14 |
 |---|---|---|
-| Added JS (gzipped) | ≤ 5 KB | `npm run build`, compare `dist/assets/*.js` before/after |
-| Added font (gzipped) | ≤ 35 KB | `ls -l dist/fonts/` |
-| New network requests | 1 (the font) | DevTools Network, filter to first load |
-| Map pan/zoom | 60fps, no dropped frames | DevTools Performance, 5s pan at z10 over NYC |
-| Long tasks during landing animation | 0 | Performance panel, first 2s |
-| Layout shift from font swap | CLS < 0.02 | Lighthouse |
+| Added JS (gzipped) | ≤ 5 KB | **+972 B** (326,110 → 327,082) ✅ |
+| Added CSS (gzipped) | — | +893 B (10,790 → 11,683) |
+| Added font | ~~35 KB~~ **100 KB** (revised) | **97.4 KB** ✅ — see note |
+| New network requests | 1 (the font) | 1 ✅ |
+| Unit tests | all pass | 10/10 ✅ |
+| Console / page errors | 0 | **0** across 6 captures ✅ |
+| Map pan/zoom | 60fps | ⚠️ not measured — see below |
+| Layout shift from font swap | CLS < 0.02 | ⚠️ not measured |
+
+**Font budget revised.** The 35 KB figure came from research describing an
+aggressively custom-subset Inter. The `inter-ui` package's Latin variable
+subset is 97 KB; `fonttools` is not installed, and adding a Python subsetting
+step to the build to save ~65 KB is a poor trade against a site that already
+loads multi-MB duckdb-wasm. One immutably-cached request, `font-display: swap`,
+never blocks paint.
+
+**Still unmeasured:** frame rate during pan and CLS both need a DevTools
+Performance/Lighthouse session, which the headless Playwright capture used here
+does not provide. The structural guarantees are in place (no `backdrop-filter`,
+transitions confined to `transform`/`opacity`, `contain: layout paint` on
+panels), but they are *unverified* — treat this row as an open item, not a pass.
+
+**Verification method used:** headless Playwright + Chromium bootstrapped to the
+session scratchpad (removed after use), capturing 6 screenshots with console and
+`pageerror` listeners attached. Two defects were caught this way and fixed:
+forgiveness amounts rendering cents in the headline pill, and the legend becoming
+unreachable below 640px.
 
 **Verification method:** this project has no Claude-in-Chrome extension configured;
 past UI verification used an ad-hoc Playwright install. Before implementing, either

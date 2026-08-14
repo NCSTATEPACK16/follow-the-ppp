@@ -28,6 +28,12 @@ describe("formatFullAmount", () => {
   it("groups thousands", () => {
     expect(formatFullAmount(1_284_500)).toBe("$1,284,500");
   });
+
+  // Forgiveness amounts carry accrued interest and arrive with cents.
+  // Cents in a headline figure are noise.
+  it("rounds cents away", () => {
+    expect(formatFullAmount(10_116_388.89)).toBe("$10,116,389");
+  });
 });
 
 describe("spokenAmount", () => {

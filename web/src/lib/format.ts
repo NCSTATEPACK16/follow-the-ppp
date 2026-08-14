@@ -5,9 +5,13 @@ export function formatCompactAmount(n: number): string {
   return `$${n.toLocaleString()}`;
 }
 
-/** Full grouped figure: 1_284_500 -> "$1,284,500". */
+/**
+ * Full grouped figure: 1_284_500 -> "$1,284,500". Rounded to whole dollars —
+ * forgiveness amounts include accrued interest and arrive with cents, which
+ * are noise in a headline figure.
+ */
 export function formatFullAmount(n: number): string {
-  return `$${n.toLocaleString()}`;
+  return `$${Math.round(n).toLocaleString()}`;
 }
 
 /**

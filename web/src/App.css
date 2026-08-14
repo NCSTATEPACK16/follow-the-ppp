@@ -600,10 +600,17 @@ body,
   border: 1.5px solid var(--text-secondary);
 }
 
-/* Below 640px the sidebar already dominates; collapse to the chip. */
+/* Below 640px the legend starts collapsed to the chip (see MapLegend.tsx).
+   It is never display:none — the legend is the pin palette's required
+   secondary encoding and must stay reachable at every viewport. The footer
+   wraps to three lines at this width, so the chip has to clear it. */
 @media (max-width: 640px) {
-  .map-legend {
-    display: none;
+  .map-legend,
+  .map-legend-chip {
+    bottom: 108px;
+    /* The sidebar owns the left edge at this width; sit over the map instead. */
+    left: auto;
+    right: 12px;
   }
 }
 

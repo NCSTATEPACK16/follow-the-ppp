@@ -6,7 +6,12 @@ import { useState } from "react";
  * See docs/design-spec.md §3.6.
  */
 export function MapLegend() {
-  const [open, setOpen] = useState(true);
+  // Narrow viewports start collapsed to the chip rather than hidden — hiding
+  // it outright would strip the pin palette's only secondary encoding on
+  // phones, which is exactly what makes the two-hue palette legal.
+  const [open, setOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > 640,
+  );
 
   if (!open) {
     return (
