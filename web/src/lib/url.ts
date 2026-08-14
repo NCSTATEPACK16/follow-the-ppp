@@ -5,6 +5,12 @@ export interface DeepLinkState {
   zoom: number;
   lat: number;
   lng: number;
+  /**
+   * True when zoom/lat/lng came from a `#zoom/lat/lng` fragment rather than
+   * falling back to DEFAULT_VIEW. A shared link must land exactly where it
+   * points, so the landing animation is suppressed when this is set.
+   */
+  fromHash: boolean;
 }
 
 /** Parse `?loan=<id>` and `#<zoom>/<lat>/<lng>` from the current URL. */
@@ -16,13 +22,15 @@ export function parseDeepLink(): DeepLinkState {
   let lat = DEFAULT_VIEW.center[1];
   let lng = DEFAULT_VIEW.center[0];
 
+  let fromHash = false;
   const hash = window.location.hash.replace(/^#/, "");
   const parts = hash.split("/").map(Number);
   if (parts.length === 3 && parts.every((n) => Number.isFinite(n))) {
     [zoom, lat, lng] = parts;
+    fromHash = true;
   }
 
-  return { loan, zoom, lat, lng };
+  return { loan, zoom, lat, lng, fromHash };
 }
 
 /** Write the current view + selected loan back into the URL without a page reload. */

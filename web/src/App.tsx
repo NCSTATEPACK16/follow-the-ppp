@@ -12,6 +12,7 @@ import { HelpPanel } from "./components/HelpPanel";
 import { getLoanByNumber, getRandomLoan, getTopLoans } from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
+import { usePrefersReducedMotion } from "./lib/useReducedMotion";
 import { filtersActive } from "./map/filters";
 import { DEFAULT_FILTERS } from "./types";
 import type { Filters, LoanRecord, LoanTileProps } from "./types";
@@ -36,6 +37,7 @@ export default function App() {
   const [topLoans, setTopLoans] = useState<LoanRecord[]>([]);
   const [randomLoading, setRandomLoading] = useState(false);
   const [searchStates, setSearchStates] = useState<string[]>([]);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     getTopLoans().then(setTopLoans);
@@ -118,6 +120,7 @@ export default function App() {
         filters={filters}
         topLoans={topLoans}
         initialView={initialLink}
+        reducedMotion={reducedMotion}
         onLoanClick={handleTileClick}
         onViewChange={handleViewChange}
         onMapReady={handleMapReady}

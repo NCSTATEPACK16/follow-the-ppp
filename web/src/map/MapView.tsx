@@ -16,7 +16,9 @@ function topLoansToGeoJson(loans: LoanRecord[]): GeoJSON.FeatureCollection {
     features: loans.map((loan) => ({
       type: "Feature",
       geometry: { type: "Point", coordinates: [loan.lng, loan.lat] },
-      properties: { id: loan.loan_number },
+      // `f` mirrors the tile layer's short key so both layers can share one
+      // color expression.
+      properties: { id: loan.loan_number, f: loan.forgiven_amount ?? 0 },
     })),
   };
 }
@@ -25,6 +27,7 @@ interface MapViewProps {
   filters: Filters;
   topLoans: LoanRecord[];
   initialView: DeepLinkState;
+  reducedMotion: boolean;
   onLoanClick: (props: LoanTileProps) => void;
   onViewChange: (v: { zoom: number; lat: number; lng: number }) => void;
   onMapReady: (map: MlMap) => void;
@@ -34,6 +37,7 @@ export function MapView({
   filters,
   topLoans,
   initialView,
+  reducedMotion,
   onLoanClick,
   onViewChange,
   onMapReady,
@@ -66,11 +70,17 @@ export function MapView({
       .then((basemap: StyleSpecification) => {
         if (cancelled || !containerRef.current) return;
 
+        // A deep link must land exactly where it points, immediately —
+        // animating it is a bug. Only the cold, no-deep-link load gets the
+        // camera move.
+        const animateIn =
+          !reducedMotion && !initialView.loan && !initialView.fromHash;
+
         const map = new maplibregl.Map({
           container: containerRef.current,
           style: buildMapStyle(basemap),
           center: [initialView.lng, initialView.lat],
-          zoom: initialView.zoom,
+          zoom: animateIn ? initialView.zoom - 1.5 : initialView.zoom,
         });
         mapRef.current = map;
 
@@ -118,15 +128,36 @@ export function MapView({
             type: "circle",
             source: "top-loans",
             paint: {
-              "circle-radius": 7,
-              "circle-color": "#f0b400",
-              "circle-stroke-width": 1.5,
-              "circle-stroke-color": "#7a5b00",
+              // Emphasis via size + ring, not a third hue: gold #f0b400
+              // failed the lightness band (L 0.803) and sat at 1.79:1
+              // contrast on the light basemap. Size and ring compose with
+              // the status color instead of overriding it, keeping the map
+              // at two hues. See docs/design-spec.md §3.5.
+              "circle-radius": 11,
+              "circle-color": [
+                "case",
+                [">", ["get", "f"], 0],
+                "#2a78d6",
+                "#eb6834",
+              ],
+              "circle-opacity": 0.9,
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#fcfcfb",
             },
           });
         };
         if (map.isStyleLoaded()) addTopLoansLayer();
         else map.once("load", addTopLoansLayer);
+
+        if (animateIn) {
+          map.once("load", () => {
+            map.easeTo({
+              zoom: initialView.zoom,
+              duration: 1400,
+              easing: (t) => 1 - Math.pow(1 - t, 3),
+            });
+          });
+        }
 
         onMapReadyRef.current(map);
       });
