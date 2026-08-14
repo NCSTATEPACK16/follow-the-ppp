@@ -34,8 +34,42 @@ body,
   width: 280px;
 }
 
+.app-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .app-panel-left h1 {
   font-size: 16px;
+  margin: 0;
+}
+
+.gear-button {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gear-button:hover {
+  background: #f0f4fa;
+}
+
+.filter-zoom-notice {
+  font-size: 12px;
+  color: #7a5b00;
+  background: #fff6e0;
+  border: 1px solid #f0d888;
+  border-radius: 4px;
+  padding: 6px 8px;
   margin: 0 0 8px;
 }
 

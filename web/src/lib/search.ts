@@ -50,10 +50,16 @@ async function getConn(): Promise<duckdb.AsyncDuckDBConnection> {
   return connPromise;
 }
 
+/**
+ * Mirrors scripts/02_normalize.py's name_normalized derivation exactly:
+ * punctuation becomes a SPACE, not nothing — "CHICK-FIL-A" -> "CHICK FIL A".
+ * Stripping to nothing (the previous bug here) produced "CHICKFILA", which
+ * never matches the space-separated indexed value.
+ */
 function normalizeName(raw: string): string {
   return raw
     .toUpperCase()
-    .replace(/[^A-Z0-9\s]/g, "")
+    .replace(/[^A-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

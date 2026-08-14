@@ -3,7 +3,7 @@ import maplibregl, { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { ensurePmtilesProtocol } from "../lib/pmtilesProtocol";
 import { buildMapStyle, BASEMAP_STYLE_URL } from "./style";
-import { buildLoansFilter } from "./filters";
+import { buildLoansFilter, filtersActive } from "./filters";
 import { DEFAULT_VIEW } from "../lib/config";
 import type { DeepLinkState } from "../lib/url";
 import type { Filters, LoanTileProps } from "../types";
@@ -92,7 +92,17 @@ export function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const apply = () => map.setFilter("loans-circle", buildLoansFilter(filters) as never);
+    const active = filtersActive(filters);
+
+    const apply = () => {
+      map.setFilter("loans-circle", buildLoansFilter(filters) as never);
+      // counties-fill and zips-circle show pre-computed aggregates baked in
+      // at tile-build time — they can't be re-filtered client-side. Dim them
+      // when a filter is active instead of silently ignoring it, so a
+      // zoomed-out view doesn't look like the filter did nothing.
+      map.setPaintProperty("counties-fill", "fill-opacity", active ? 0.12 : 0.75);
+      map.setPaintProperty("zips-circle", "circle-opacity", active ? 0.1 : 0.6);
+    };
     if (map.isStyleLoaded()) apply();
     else map.once("load", apply);
   }, [filters]);

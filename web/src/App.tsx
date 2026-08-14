@@ -6,12 +6,16 @@ import { FilterPanel } from "./components/FilterPanel";
 import { DetailCard } from "./components/DetailCard";
 import { Footer } from "./components/Footer";
 import { AboutPanel } from "./components/AboutPanel";
+import { HelpPanel } from "./components/HelpPanel";
 import { getLoanByNumber } from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
+import { filtersActive } from "./map/filters";
 import { DEFAULT_FILTERS } from "./types";
 import type { Filters, LoanRecord, LoanTileProps } from "./types";
 import "./App.css";
+
+const LOANS_MIN_ZOOM = 9;
 
 const initialLink = parseDeepLink();
 
@@ -24,7 +28,9 @@ export default function App() {
     initialLink.loan ? { loanNumber: initialLink.loan, preview: null } : null,
   );
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [lastSearchResults, setLastSearchResults] = useState<LoanRecord[]>([]);
+  const [zoom, setZoom] = useState(initialLink.zoom);
 
   const mapRef = useRef<MlMap | null>(null);
   const viewRef = useRef({
@@ -45,6 +51,7 @@ export default function App() {
   const handleViewChange = useCallback(
     (v: { zoom: number; lat: number; lng: number }) => {
       viewRef.current = v;
+      setZoom(v.zoom);
       writeDeepLink({ loan: selectedLoan?.loanNumber ?? null, ...v });
     },
     [selectedLoan],
@@ -95,9 +102,27 @@ export default function App() {
       />
 
       <div className="app-panel app-panel-left">
-        <h1>PPP Loan Map — North Carolina</h1>
+        <div className="app-panel-header">
+          <h1>PPP Loan Map — North Carolina</h1>
+          <button
+            type="button"
+            className="gear-button"
+            onClick={() => setHelpOpen(true)}
+            aria-label="Help — how filters and search work"
+            title="Help — how filters and search work"
+          >
+            ⚙
+          </button>
+        </div>
         <SearchBox onSelect={handleSearchSelect} onResultsChange={setLastSearchResults} />
         <FilterPanel filters={filters} onChange={setFilters} />
+        {filtersActive(filters) && zoom < LOANS_MIN_ZOOM && (
+          <p className="filter-zoom-notice">
+            Filters only apply to individual loan pins. The shaded counties and
+            dots you're seeing at this zoom are unfiltered totals — zoom in
+            (past ~z{LOANS_MIN_ZOOM}) to see the filtered pins.
+          </p>
+        )}
         <button type="button" onClick={handleExportKml}>
           Export search results as KML
         </button>
@@ -115,6 +140,7 @@ export default function App() {
 
       <Footer onAboutClick={() => setAboutOpen(true)} />
       {aboutOpen && <AboutPanel onClose={() => setAboutOpen(false)} />}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

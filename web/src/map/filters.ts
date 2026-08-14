@@ -28,3 +28,12 @@ export function buildLoansFilter(filters: Filters): unknown[] | null {
 
   return clauses.length > 1 ? clauses : null;
 }
+
+export function filtersActive(filters: Filters): boolean {
+  return (
+    filters.minAmount != null ||
+    filters.maxAmount != null ||
+    filters.forgivenessStatus !== "any" ||
+    filters.naicsSector != null
+  );
+}
