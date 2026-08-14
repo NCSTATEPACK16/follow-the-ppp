@@ -12,45 +12,45 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
         <div className="about-panel-body">
         <h2>How to use this map</h2>
 
-        <h3>Searching by name</h3>
+        <h3>Search</h3>
         <p>
-          Type at least 2 characters of a borrower's name — partial names work fine, and you
-          don't need exact spelling or punctuation. "chick fil a" matches "CHICK-FIL-A OF
-          RALEIGH" just as well as the fully-punctuated version, since matching ignores case,
-          punctuation, and spacing differences. Results appear in a dropdown list below the
-          search box as you type (there's a short pause while it searches), sorted by loan
-          amount, largest first. Click a result to jump the map to it and open its full record.
-        </p>
-        <p>
-          Search only covers North Carolina loans, and only the fields shown on the detail card
-          — it won't match on address, lender, or NAICS code, only borrower name.
+          Type at least 2 letters of a borrower's name — punctuation, case, and spacing don't
+          matter ("chick fil a" matches "CHICK-FIL-A"). Results are sorted largest loan first;
+          click one to jump to it. Name only — no address, lender, or NAICS matching.
         </p>
 
         <h3>Filters</h3>
         <p>
           <strong>Min/Max amount</strong>, <strong>Forgiveness status</strong>, and{" "}
-          <strong>NAICS sector</strong> filter the individual loan pins you see once you're
-          zoomed in close enough to view them (roughly city/neighborhood level).
-        </p>
-        <p>
-          <strong>They do not filter the shaded counties or the dots you see when zoomed out</strong>{" "}
-          — those are pre-computed totals baked in ahead of time and can't be recalculated
-          on the fly. When a filter is active and you're zoomed out, those layers dim to signal
-          they're showing unfiltered totals, not what your filter selected. Zoom in to see the
-          filter actually take effect.
-        </p>
-        <p>
-          Two filters from the original plan for this map — filtering by <strong>year</strong>{" "}
-          and by <strong>lender</strong> — aren't available yet; the map data was built without
-          those fields to keep the file size small.
+          <strong>NAICS sector</strong> apply to individual loan pins once you're zoomed in close
+          enough to see them (roughly city/neighborhood level) — they{" "}
+          <strong>don't</strong> affect the shaded counties or dots you see zoomed out, since
+          those are pre-computed totals. Those layers dim when a filter is active as a reminder
+          they're still showing unfiltered numbers. <strong>Year</strong> and{" "}
+          <strong>lender</strong> filters aren't available — left out of the map data to keep
+          the file size small.
         </p>
 
-        <h3>Reading the pins</h3>
-        <p>
-          Pin size scales with loan amount — bigger pins, more money. Green means forgiven,
-          red means not forgiven (or not yet decided). A hollow, faint pin means the location
-          is approximate (only the ZIP code is known); a solid pin means the location is exact.
-        </p>
+        <h3>Colors</h3>
+        <ul className="help-legend">
+          <li><span className="legend-swatch legend-swatch-green" /> Forgiven loan</li>
+          <li><span className="legend-swatch legend-swatch-red" /> Not forgiven (or undecided)</li>
+          <li><span className="legend-swatch legend-swatch-gold" /> One of the largest loans ($5M+) — always shown, at any zoom</li>
+          <li><span className="legend-swatch legend-swatch-hollow" /> Approximate location (ZIP centroid only); solid = exact address</li>
+          <li><span className="legend-swatch legend-swatch-county" /> County shading — darker means more total dollars approved there</li>
+        </ul>
+        <p>Pin size also scales with loan amount — bigger pin, more money.</p>
+
+        <h3>Loan status</h3>
+        <p>Every loan record carries one of three statuses from the SBA data:</p>
+        <ul>
+          <li><strong>Paid in Full</strong> — repaid or forgiven; no balance remains.</li>
+          <li><strong>Charged Off</strong> — borrower defaulted; the SBA wrote it off as a loss.</li>
+          <li>
+            <strong>Exemption 4</strong> — the SBA withheld the status, citing FOIA Exemption 4
+            (confidential commercial information); not disclosed.
+          </li>
+        </ul>
         </div>
       </div>
     </div>

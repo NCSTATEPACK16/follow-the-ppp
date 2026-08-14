@@ -12,14 +12,13 @@ export const TILE_URLS = {
   loans: `${TILES_BASE}/loans-240930-v1.pmtiles`,
 };
 
-export const SEARCH_INDEX_URL = `${DATA_BASE}/search_state_NC.parquet`;
+export const SEARCH_INDEX_URL = `${DATA_BASE}/search_index.parquet`;
 
-// North Carolina, roughly centered — this is the default camera. The
-// underlying tiles are national (see reports/05_tiles.md), but this build's
-// scope (config.yaml SCOPE=NC) and search index are NC-only.
+// Continental US, zoomed out enough to see the whole country — tiles and
+// search are both national (see reports/05_tiles.md, config.yaml SCOPE).
 export const DEFAULT_VIEW = {
-  center: [-79.3, 35.5] as [number, number],
-  zoom: 6.5,
+  center: [-98.5, 39.5] as [number, number],
+  zoom: 3.5,
 };
 
 export const SBA_SOURCE_URL = "https://data.sba.gov/dataset/ppp-foia";

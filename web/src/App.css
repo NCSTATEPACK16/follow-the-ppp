@@ -281,3 +281,49 @@ body,
 .about-panel h3 {
   margin-top: 20px;
 }
+
+.help-legend {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.help-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-swatch-green {
+  background: #1a8f5a;
+}
+
+.legend-swatch-red {
+  background: #c0392b;
+}
+
+.legend-swatch-gold {
+  background: #f0b400;
+  border: 1.5px solid #7a5b00;
+}
+
+.legend-swatch-hollow {
+  background: transparent;
+  border: 1.5px solid #555555;
+}
+
+.legend-swatch-county {
+  border-radius: 3px;
+  background: #7fa8d9;
+}

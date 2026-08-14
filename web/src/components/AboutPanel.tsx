@@ -15,8 +15,8 @@ export function AboutPanel({ onClose }: AboutPanelProps) {
         <h2>About this map</h2>
 
         <p>
-          This map shows Paycheck Protection Program (PPP) loans issued to businesses and
-          individuals in North Carolina, drawn from the{" "}
+          This map shows Paycheck Protection Program (PPP) loans issued nationwide to businesses
+          and individuals, drawn from the{" "}
           <a href={SBA_SOURCE_URL} target="_blank" rel="noreferrer">
             SBA's public FOIA release
           </a>

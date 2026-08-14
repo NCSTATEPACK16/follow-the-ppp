@@ -123,7 +123,7 @@ export default function App() {
 
       <div className="app-panel app-panel-left">
         <div className="app-panel-header">
-          <h1>PPP Loan Map — North Carolina</h1>
+          <h1>PPP Loan Map</h1>
           <button
             type="button"
             className="gear-button"

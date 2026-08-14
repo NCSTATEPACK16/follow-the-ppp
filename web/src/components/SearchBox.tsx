@@ -42,7 +42,7 @@ export function SearchBox({ onSelect, onResultsChange }: SearchBoxProps) {
     <div className="search-box">
       <input
         type="text"
-        placeholder="Search borrower name (NC)…"
+        placeholder="Search borrower name…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length && setOpen(true)}
