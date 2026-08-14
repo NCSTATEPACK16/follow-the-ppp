@@ -460,3 +460,35 @@ body,
   outline-offset: 2px;
   border-radius: var(--radius-control);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.random-button,
+.state-filter-toggle,
+.top-loans-toggle {
+  border-radius: var(--radius-control);
+  transition: background-color var(--motion-fast) var(--ease),
+    transform var(--motion-fast) var(--ease);
+}
+
+.random-button:hover:not(:disabled),
+.state-filter-toggle:hover,
+.top-loans-toggle:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.random-button:active:not(:disabled),
+.state-filter-toggle:active,
+.top-loans-toggle:active {
+  transform: translateY(0);
+}
