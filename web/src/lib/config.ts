@@ -13,6 +13,7 @@ export const TILE_URLS = {
 };
 
 export const SEARCH_INDEX_URL = `${DATA_BASE}/search_index.parquet`;
+export const STATE_INDEX_BASE_URL = `${DATA_BASE}/states`;
 
 // Continental US, zoomed out enough to see the whole country — tiles and
 // search are both national (see reports/05_tiles.md, config.yaml SCOPE).

@@ -3,13 +3,14 @@ import { searchByName } from "../lib/search";
 import type { LoanRecord } from "../types";
 
 interface SearchBoxProps {
+  states: string[];
   onSelect: (loan: LoanRecord) => void;
   onResultsChange?: (results: LoanRecord[]) => void;
 }
 
 const DEBOUNCE_MS = 250;
 
-export function SearchBox({ onSelect, onResultsChange }: SearchBoxProps) {
+export function SearchBox({ states, onSelect, onResultsChange }: SearchBoxProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<LoanRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ export function SearchBox({ onSelect, onResultsChange }: SearchBoxProps) {
     setLoading(true);
     timerRef.current = window.setTimeout(async () => {
       try {
-        const rows = await searchByName(query);
+        const rows = await searchByName(query, states);
         setResults(rows);
         onResultsChange?.(rows);
         setOpen(true);
@@ -36,7 +37,7 @@ export function SearchBox({ onSelect, onResultsChange }: SearchBoxProps) {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-  }, [query]);
+  }, [query, states]);
 
   return (
     <div className="search-box">

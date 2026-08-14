@@ -1,9 +1,10 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
-import { SEARCH_INDEX_URL } from "./config";
+import { SEARCH_INDEX_URL, STATE_INDEX_BASE_URL } from "./config";
 import type { LoanRecord } from "../types";
 
 let dbPromise: Promise<duckdb.AsyncDuckDB> | null = null;
 let connPromise: Promise<duckdb.AsyncDuckDBConnection> | null = null;
+const registeredStateFiles = new Set<string>();
 
 /**
  * Boots duckdb-wasm using its jsdelivr-hosted worker/wasm bundles (the
@@ -51,6 +52,35 @@ async function getConn(): Promise<duckdb.AsyncDuckDBConnection> {
 }
 
 /**
+ * Registers a per-state shard (data/states/<CODE>.parquet, see
+ * scripts/06_search_index.py) under a stable alias the first time it's
+ * needed, so a state-filtered search scans only that shard instead of the
+ * ~500MB national file — the only way substring name search stays fast at
+ * national scope.
+ */
+async function ensureStateFilesRegistered(codes: string[]): Promise<string[]> {
+  const db = await getDb();
+  const aliases: string[] = [];
+  for (const code of codes) {
+    const alias = `search_state_${code}.parquet`;
+    aliases.push(alias);
+    if (registeredStateFiles.has(alias)) continue;
+    const absoluteUrl = new URL(`${STATE_INDEX_BASE_URL}/${code}.parquet`, window.location.href)
+      .href;
+    await db.registerFileURL(alias, absoluteUrl, duckdb.DuckDBDataProtocol.HTTP, false);
+    registeredStateFiles.add(alias);
+  }
+  return aliases;
+}
+
+/** The FROM-clause source for a query: the national file, or a union of the selected states' shards. */
+async function searchSource(states: string[]): Promise<string> {
+  if (states.length === 0) return `parquet_scan('search_index.parquet')`;
+  const aliases = await ensureStateFilesRegistered(states);
+  return `parquet_scan([${aliases.map((a) => `'${a}'`).join(", ")}])`;
+}
+
+/**
  * Mirrors scripts/02_normalize.py's name_normalized derivation exactly:
  * punctuation becomes a SPACE, not nothing — "CHICK-FIL-A" -> "CHICK FIL A".
  * Stripping to nothing (the previous bug here) produced "CHICKFILA", which
@@ -94,15 +124,31 @@ function rowToLoan(row: Record<string, unknown>): LoanRecord {
   };
 }
 
-/** Debounced-caller-friendly: fires one query per call, caller handles debounce. */
-export async function searchByName(query: string, limit = 50): Promise<LoanRecord[]> {
+/** Only ever built from the fixed STATE_LABELS dropdown, but validated anyway before it's interpolated into SQL/file paths. */
+function validStateCodes(states: string[]): string[] {
+  return states.filter((s) => /^[A-Z]{2}$/.test(s));
+}
+
+/**
+ * Debounced-caller-friendly: fires one query per call, caller handles debounce.
+ * With no states selected, scans the full national index (~10-15s per query
+ * at this data size). Selecting one or more states scans only those shards —
+ * much faster, and the only way to tell same-named businesses in different
+ * states apart without opening every result.
+ */
+export async function searchByName(
+  query: string,
+  states: string[] = [],
+  limit = 50,
+): Promise<LoanRecord[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
   const conn = await getConn();
   const escaped = normalizeName(trimmed).replace(/'/g, "''");
+  const source = await searchSource(validStateCodes(states));
   const result = await conn.query(`
-    SELECT * FROM parquet_scan('search_index.parquet')
+    SELECT * FROM ${source}
     WHERE name_normalized ILIKE '%${escaped}%'
     ORDER BY approved_amount DESC
     LIMIT ${limit}

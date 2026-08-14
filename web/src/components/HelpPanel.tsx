@@ -18,6 +18,11 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
           matter ("chick fil a" matches "CHICK-FIL-A"). Results are sorted largest loan first;
           click one to jump to it. Name only — no address, lender, or NAICS matching.
         </p>
+        <p>
+          Same-named businesses show up in every state that has one. Use{" "}
+          <strong>"Narrow search by state"</strong> above the search box to pick a state (or a
+          few) first — it also searches noticeably faster than an unfiltered nationwide search.
+        </p>
 
         <h3>Filters</h3>
         <p>

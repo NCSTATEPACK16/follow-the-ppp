@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Map as MlMap } from "maplibre-gl";
 import { MapView } from "./map/MapView";
 import { SearchBox } from "./components/SearchBox";
+import { StateFilter } from "./components/StateFilter";
 import { FilterPanel } from "./components/FilterPanel";
 import { TopLoansPanel } from "./components/TopLoansPanel";
 import { DetailCard } from "./components/DetailCard";
@@ -34,6 +35,7 @@ export default function App() {
   const [zoom, setZoom] = useState(initialLink.zoom);
   const [topLoans, setTopLoans] = useState<LoanRecord[]>([]);
   const [randomLoading, setRandomLoading] = useState(false);
+  const [searchStates, setSearchStates] = useState<string[]>([]);
 
   useEffect(() => {
     getTopLoans().then(setTopLoans);
@@ -134,7 +136,12 @@ export default function App() {
             ⚙
           </button>
         </div>
-        <SearchBox onSelect={handleSearchSelect} onResultsChange={setLastSearchResults} />
+        <StateFilter selected={searchStates} onChange={setSearchStates} />
+        <SearchBox
+          states={searchStates}
+          onSelect={handleSearchSelect}
+          onResultsChange={setLastSearchResults}
+        />
         <button
           type="button"
           className="random-button"

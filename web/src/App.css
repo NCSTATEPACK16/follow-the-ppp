@@ -117,6 +117,67 @@ body,
   background: #f0f4fa;
 }
 
+.state-filter {
+  margin-bottom: 12px;
+}
+
+.state-filter-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: #eef2f7;
+  border: 1px solid #ccd6e2;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3a4b61;
+  cursor: pointer;
+  text-align: left;
+}
+
+.state-filter-body {
+  border: 1px solid #ccd6e2;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  padding: 8px;
+}
+
+.state-filter-hint {
+  font-size: 11px;
+  color: #666;
+  margin: 0 0 6px;
+}
+
+.state-filter-clear {
+  font-size: 11px;
+  margin-bottom: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.state-filter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.state-filter-list li {
+  padding: 2px 0;
+}
+
+.state-filter-list label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .random-button {
   width: 100%;
   margin-bottom: 12px;
