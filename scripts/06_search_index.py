@@ -1,9 +1,13 @@
+import json
 import os
 import duckdb
 
-DB_PATH    = 'data/ppp.duckdb'
-OUT_DIR    = 'data/interim'
-STATES_DIR = f'{OUT_DIR}/states'
+DB_PATH        = 'data/ppp.duckdb'
+OUT_DIR        = 'data/interim'
+STATES_DIR     = f'{OUT_DIR}/states'
+TOP_LOANS_PATH = f'{OUT_DIR}/top_loans.json'
+TOP_LOANS_MIN  = 5_000_000
+TOP_LOANS_LIMIT = 500
 
 SELECT_COLUMNS = """
                 LoanNumber        AS loan_number,
@@ -70,6 +74,33 @@ def main():
         state_sizes[code] = os.path.getsize(state_path) / 1024 / 1024
     print(f"  Exported {len(states)} state shards to {STATES_DIR}/")
 
+    # Precomputed $5M+ loans as a static JSON file, not a live DuckDB query —
+    # the "Largest loans" panel used to run this as an in-browser scan of the
+    # 499MB national parquet on every page load, and since duckdb-wasm's
+    # single-threaded worker processes one query at a time, that blocked any
+    # search the user typed until the scan finished (~20s+). This data barely
+    # changes (fixed to the SBA FOIA data vintage), so precomputing it removes
+    # it from the worker's queue entirely — a plain fetch() instead.
+    print(f"Exporting top loans (>= ${TOP_LOANS_MIN:,}) to {TOP_LOANS_PATH}...")
+    top_rows = con.execute(f"""
+        SELECT {SELECT_COLUMNS}
+        FROM loans
+        WHERE CurrentApprovalAmount >= {TOP_LOANS_MIN}
+        ORDER BY CurrentApprovalAmount DESC
+        LIMIT {TOP_LOANS_LIMIT}
+    """).fetchall()
+    columns = [d[0] for d in con.description]
+    top_loans = []
+    for row in top_rows:
+        record = dict(zip(columns, row))
+        if record.get('date_approved') is not None:
+            record['date_approved'] = record['date_approved'].isoformat()
+        top_loans.append(record)
+    with open(TOP_LOANS_PATH, 'w') as f:
+        json.dump(top_loans, f)
+    top_loans_size_kb = os.path.getsize(TOP_LOANS_PATH) / 1024
+    print(f"  Top loans: {len(top_loans)} rows, {top_loans_size_kb:.1f} KB")
+
     # Row counts
     total = con.execute("SELECT COUNT(*) FROM loans").fetchone()[0]
 
@@ -92,6 +123,7 @@ def main():
 | File | Size |
 |------|------|
 | `search_index.parquet` (national) | {size_mb:.1f} MB |
+| `top_loans.json` (>= ${TOP_LOANS_MIN:,}, static) | {top_loans_size_kb:.1f} KB |
 
 ## State shards (`states/`)
 {shard_rows}

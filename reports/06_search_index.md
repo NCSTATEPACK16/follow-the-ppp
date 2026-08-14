@@ -4,6 +4,7 @@
 | File | Size |
 |------|------|
 | `search_index.parquet` (national) | 499.1 MB |
+| `top_loans.json` (>= $5,000,000, static) | 244.1 KB |
 
 ## State shards (`states/`)
 | `AE.parquet` | 0.0 MB |

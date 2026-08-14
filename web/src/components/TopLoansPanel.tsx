@@ -6,14 +6,14 @@ interface TopLoansPanelProps {
   onSelect: (loan: LoanRecord) => void;
 }
 
-const MIN_AMOUNT = 5_000_000;
+const MIN_AMOUNT = 5_000_000; // must match TOP_LOANS_MIN in scripts/06_search_index.py
 
 export function TopLoansPanel({ onSelect }: TopLoansPanelProps) {
   const [loans, setLoans] = useState<LoanRecord[] | null>(null);
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
-    getTopLoans(MIN_AMOUNT).then(setLoans);
+    getTopLoans().then(setLoans);
   }, []);
 
   return (

@@ -1,5 +1,5 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
-import { SEARCH_INDEX_URL, STATE_INDEX_BASE_URL } from "./config";
+import { SEARCH_INDEX_URL, STATE_INDEX_BASE_URL, TOP_LOANS_URL } from "./config";
 import type { LoanRecord } from "../types";
 
 let dbPromise: Promise<duckdb.AsyncDuckDB> | null = null;
@@ -156,19 +156,24 @@ export async function searchByName(
   return result.toArray().map((r) => rowToLoan(r.toJSON() as Record<string, unknown>));
 }
 
-/** The biggest loans in the index — used to seed the "Largest loans" panel so there's something to see before any search. */
-export async function getTopLoans(
-  minAmount = 5_000_000,
-  limit = 200,
-): Promise<LoanRecord[]> {
-  const conn = await getConn();
-  const result = await conn.query(`
-    SELECT * FROM parquet_scan('search_index.parquet')
-    WHERE approved_amount >= ${minAmount}
-    ORDER BY approved_amount DESC
-    LIMIT ${limit}
-  `);
-  return result.toArray().map((r) => rowToLoan(r.toJSON() as Record<string, unknown>));
+let topLoansPromise: Promise<LoanRecord[]> | null = null;
+
+/**
+ * The biggest loans (>= $5M, see scripts/06_search_index.py TOP_LOANS_MIN) —
+ * seeds the "Largest loans" panel so there's something to see before any
+ * search. Fetched as a static precomputed JSON file rather than queried live
+ * against the 499MB national parquet: that used to run on every page load
+ * and, since duckdb-wasm's worker is single-threaded, blocked any search the
+ * user typed until the ~20s scan finished. This data barely changes (fixed
+ * to the SBA FOIA vintage), so a plain fetch() never touches the DB worker.
+ */
+export async function getTopLoans(): Promise<LoanRecord[]> {
+  if (!topLoansPromise) {
+    topLoansPromise = fetch(TOP_LOANS_URL)
+      .then((r) => r.json())
+      .then((rows: Record<string, unknown>[]) => rows.map(rowToLoan));
+  }
+  return topLoansPromise;
 }
 
 /** USING SAMPLE takes a single-pass reservoir sample instead of sorting/scanning the whole table. */
