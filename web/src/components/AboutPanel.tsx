@@ -11,6 +11,7 @@ export function AboutPanel({ onClose }: AboutPanelProps) {
         <button type="button" className="detail-card-close" onClick={onClose} aria-label="Close">
           ×
         </button>
+        <div className="about-panel-body">
         <h2>About this map</h2>
 
         <p>
@@ -73,6 +74,7 @@ export function AboutPanel({ onClose }: AboutPanelProps) {
           elsewhere; this map does not attempt to identify it, and a name and dollar figure
           appearing here should not be read as an accusation.
         </p>
+        </div>
       </div>
     </div>
   );

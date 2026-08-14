@@ -9,6 +9,7 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
         <button type="button" className="detail-card-close" onClick={onClose} aria-label="Close">
           ×
         </button>
+        <div className="about-panel-body">
         <h2>How to use this map</h2>
 
         <h3>Searching by name</h3>
@@ -50,6 +51,7 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
           red means not forgiven (or not yet decided). A hollow, faint pin means the location
           is approximate (only the ZIP code is known); a solid pin means the location is exact.
         </p>
+        </div>
       </div>
     </div>
   );
