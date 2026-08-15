@@ -104,9 +104,12 @@ fips → {
 }
 ```
 
-Dollars round to whole units and percentages to one decimal — at 3,220 rows that
-is the difference between roughly 290KB and a payload that gzips to about 70KB.
-Well inside the R2 free tier, which the project treats as a hard limit.
+Dollars round to whole units and percentages to one decimal. **Measured result:
+3,226 counties, 767KB raw, 144KB gzipped** — about double the 70KB this spec
+originally estimated, because thirteen self-describing keys per record cost more
+than allowed for. Still well inside the R2 free tier, and it is fetched once,
+lazily, on the first county tap. Short keys would roughly halve it if the
+transfer ever proves to matter on a slow link.
 
 Add `COUNTY_STATS_URL` to `web/src/lib/config.ts` alongside the existing
 `DATA_BASE` constants. The web client fetches it once, on the first county tap,

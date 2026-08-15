@@ -7,7 +7,12 @@ two-pass resolution that fixes it.
 
 import pytest
 
-from county_join import build_tiger_index, normalize_county_name, resolve_fips
+from county_join import (
+    build_tiger_index,
+    display_name,
+    normalize_county_name,
+    resolve_fips,
+)
 
 # (geoid, name, state, lsad) — a slice of cb_2021_us_county_500k covering
 # every failure class. LSAD '06' is a county, '25' an independent city.
@@ -138,3 +143,24 @@ class TestResolveFips:
 
     def test_right_name_wrong_state_returns_none(self, index):
         assert resolve_fips("NY", "WAKE", index) is None
+
+
+class TestDisplayName:
+    """TIGER spells independent cities without the suffix, so 29189 and 29510
+    are both plain "St. Louis". Two rows reading "St. Louis, MO" in the county
+    sheet is indistinguishable nonsense — the label has to carry the split."""
+
+    def test_independent_city_is_labelled_as_a_city(self):
+        assert display_name("St. Louis", "25") == "St. Louis City"
+
+    def test_county_keeps_its_plain_name(self):
+        assert display_name("St. Louis", "06") == "St. Louis"
+
+    def test_city_and_county_labels_differ(self):
+        assert display_name("Richmond", "25") != display_name("Richmond", "06")
+
+    def test_name_already_ending_in_city_is_not_doubled(self):
+        # Charles City is a county; nothing to append. And were a city ever
+        # named "...City", "City City" would be wrong.
+        assert display_name("Charles City", "06") == "Charles City"
+        assert display_name("Carson City", "25") == "Carson City"

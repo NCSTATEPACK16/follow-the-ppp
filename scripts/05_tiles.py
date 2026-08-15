@@ -17,7 +17,7 @@ import sys
 
 import duckdb
 
-from county_join import build_tiger_index, resolve_fips
+from county_join import build_tiger_index, display_name, resolve_fips
 
 DB_PATH = 'data/ppp.duckdb'
 INTERIM = 'data/interim'
@@ -117,13 +117,13 @@ def build_counties(con):
         )
 
     with open(county_geojson, 'w') as fh:
-        for geom_str, fips, name, state, _lsad in tiger_rows:
+        for geom_str, fips, name, state, lsad in tiger_rows:
             _, loan_count, approved, forgiven = by_fips.get(fips, (None, 0, 0, 0))
             fh.write(json.dumps({
                 'type': 'Feature',
                 'geometry': json.loads(geom_str),
                 'properties': {
-                    'fips': fips, 'name': name, 'state': state,
+                    'fips': fips, 'name': display_name(name, lsad), 'state': state,
                     'loan_count': loan_count,
                     'sum_approved': approved, 'sum_forgiven': forgiven,
                 },

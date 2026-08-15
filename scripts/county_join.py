@@ -49,6 +49,18 @@ def normalize_county_name(name: str) -> str:
     return key
 
 
+def display_name(name, lsad):
+    """The label a reader sees for a county or independent city.
+
+    TIGER spells independent cities without the suffix, so St. Louis County
+    and St. Louis City are both plain "St. Louis". Two rows reading
+    "St. Louis, MO" in the county sheet would be indistinguishable.
+    """
+    if lsad == CITY_LSAD and not name.upper().endswith("CITY"):
+        return f"{name} City"
+    return name
+
+
 def build_tiger_index(rows):
     """Index TIGER rows of (geoid, name, state, lsad) by (state, normalized name).
 
