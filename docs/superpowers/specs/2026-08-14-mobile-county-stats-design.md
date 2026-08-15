@@ -104,9 +104,9 @@ fips → {
 }
 ```
 
-Dollars round to whole units and percentages to one decimal — at 3,239 rows
-at 3,220 rows that is the difference between roughly 290KB and a payload that
-gzips to about 70KB. Well inside the R2 free tier, which the project treats as a hard limit.
+Dollars round to whole units and percentages to one decimal — at 3,220 rows that
+is the difference between roughly 290KB and a payload that gzips to about 70KB.
+Well inside the R2 free tier, which the project treats as a hard limit.
 
 Add `COUNTY_STATS_URL` to `web/src/lib/config.ts` alongside the existing
 `DATA_BASE` constants. The web client fetches it once, on the first county tap,
