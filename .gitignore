@@ -15,3 +15,10 @@ web/*.tsbuildinfo
 
 # Local Netlify folder
 .netlify
+
+# Brainstorming mockups (visual companion)
+.superpowers/
+
+__pycache__/
+*.pyc
+.pytest_cache/

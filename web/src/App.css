@@ -1,3 +1,53 @@
+@font-face {
+  font-family: "InterVar";
+  src: url("/fonts/Inter-roman-latin.var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces & ink — docs/design-spec.md §3.7 */
+  --surface-1: #fcfcfb;
+  --surface-2: #f2f1ee;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --border: rgba(11, 11, 11, 0.1);
+
+  /* Identity — validator-passed, docs/design-spec.md §3.2 */
+  --accent: #2a78d6;
+  --pin-forgiven: #2a78d6;
+  --pin-unforgiven: #eb6834;
+
+  /* Elevation — three low-alpha pairs read as a contact shadow.
+     No backdrop-filter: it recomputes the blur every frame over a
+     continuously-repainting WebGL canvas. */
+  --elev-panel:
+    0 0 0 1px var(--border),
+    0 1px 2px rgba(11, 11, 11, 0.04),
+    0 4px 12px rgba(11, 11, 11, 0.06),
+    0 12px 32px rgba(11, 11, 11, 0.08);
+
+  --radius-panel: 10px;
+  --radius-control: 6px;
+  --radius-pill: 999px;
+
+  /* Motion — compositor-only properties, one easing curve */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 400ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Type scale — four steps, nothing else gets a size */
+  --type-hero: 650 30px/1.1 "InterVar", system-ui, sans-serif;
+  --type-title: 620 17px/1.3 "InterVar", system-ui, sans-serif;
+  --type-body: 400 13px/1.45 "InterVar", system-ui, sans-serif;
+  --type-micro: 500 11px/1.4 "InterVar", system-ui, sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -7,13 +57,23 @@ body,
 #root {
   margin: 0;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: var(--type-body);
+  font-family: "InterVar", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-primary);
+}
+
+/* Loan numbers, dates, and any column of figures. Slashed zero matters:
+   loan numbers are alphanumeric and visitors copy them. */
+.tnum {
+  font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .app-shell {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  /* dvh, not vh: on iOS Safari 100vh is the height with the URL bar hidden,
+     so the bottom of the app sits permanently under the browser chrome. */
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -21,12 +81,14 @@ body,
   position: absolute;
   top: 12px;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  padding: 12px 16px;
-  max-height: calc(100vh - 80px);
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--elev-panel);
+  padding: 14px 16px;
+  max-height: calc(100dvh - 92px);
   overflow-y: auto;
+  /* Isolate panel reflow from the map canvas. */
+  contain: layout paint;
 }
 
 .app-panel-left {
@@ -43,24 +105,29 @@ body,
 }
 
 .app-panel-left h1 {
-  font-size: 16px;
+  font: var(--type-title);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .gear-button {
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 26px;
-  height: 26px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background-color var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
 }
 
 .gear-button:hover {
-  background: #f0f4fa;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .filter-zoom-notice {
@@ -100,21 +167,63 @@ body,
   padding: 0;
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
 }
 
 .search-results li {
-  padding: 6px 8px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  font-size: 13px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
 
-.search-results li:hover {
-  background: #f0f4fa;
+.search-results li:last-child {
+  border-bottom: none;
+}
+
+.loan-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  font: var(--type-body);
+  color: var(--text-primary);
+  transition: background-color var(--motion-fast) var(--ease),
+    border-color var(--motion-fast) var(--ease);
+}
+
+.loan-row:hover {
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+}
+
+.loan-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.loan-row-name {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loan-row-meta {
+  font: var(--type-micro);
+  color: var(--text-muted);
+}
+
+.loan-row-amount {
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 .state-filter {
@@ -195,13 +304,13 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  background: #fff6e0;
-  border: 1px solid #f0d888;
-  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   padding: 6px 8px;
-  font-size: 12px;
+  font: var(--type-micro);
   font-weight: 600;
-  color: #7a5b00;
+  color: var(--text-secondary);
   cursor: pointer;
   text-align: left;
 }
@@ -250,28 +359,12 @@ body,
   line-height: 1;
 }
 
-.detail-card dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  font-size: 13px;
-}
-
-.detail-card dt {
-  font-weight: 600;
-  color: #555;
-}
-
-.detail-card dd {
-  margin: 0;
-}
-
 .detail-card-disclaimer {
-  font-size: 12px;
-  color: #666;
-  margin-top: 12px;
-  border-top: 1px solid #eee;
-  padding-top: 8px;
+  font: var(--type-micro);
+  color: var(--text-muted);
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
 }
 
 .app-footer {
@@ -366,25 +459,485 @@ body,
   display: inline-block;
 }
 
-.legend-swatch-green {
-  background: #1a8f5a;
+.legend-swatch-forgiven {
+  background: var(--pin-forgiven);
 }
 
-.legend-swatch-red {
-  background: #c0392b;
+.legend-swatch-unforgiven {
+  background: var(--pin-unforgiven);
 }
 
-.legend-swatch-gold {
-  background: #f0b400;
-  border: 1.5px solid #7a5b00;
+/* Largest loans keep their status hue — the emphasis is size + ring, not a
+   third color. The swatch shows the ring. */
+.legend-swatch-top {
+  background: var(--pin-forgiven);
+  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--border);
 }
 
 .legend-swatch-hollow {
   background: transparent;
-  border: 1.5px solid #555555;
+  border: 1.5px solid var(--text-secondary);
 }
 
 .legend-swatch-county {
   border-radius: 3px;
-  background: #7fa8d9;
+  background: #3987e5;
+}
+
+/* Focus is never transitioned — it must be instant. */
+:where(button, input, select, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.random-button,
+.state-filter-toggle,
+.top-loans-toggle {
+  border-radius: var(--radius-control);
+  transition: background-color var(--motion-fast) var(--ease),
+    transform var(--motion-fast) var(--ease);
+}
+
+.random-button:hover:not(:disabled),
+.state-filter-toggle:hover,
+.top-loans-toggle:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.random-button:active:not(:disabled),
+.state-filter-toggle:active,
+.top-loans-toggle:active {
+  transform: translateY(0);
+}
+
+.map-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 40px;
+  z-index: 10;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+  box-shadow: var(--elev-panel);
+  padding: 8px 26px 8px 10px;
+  font: var(--type-micro);
+  color: var(--text-secondary);
+}
+
+.map-legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.map-legend-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.map-legend-chip {
+  position: absolute;
+  left: 12px;
+  bottom: 40px;
+  z-index: 10;
+  background: var(--surface-1);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--elev-panel);
+  padding: 5px 12px;
+  font: var(--type-micro);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* Shared by the legend and by LoanRow, so list and map use one encoding. */
+.legend-dot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot[data-state="forgiven"] {
+  background: var(--pin-forgiven);
+}
+
+.legend-dot[data-state="unforgiven"] {
+  background: var(--pin-unforgiven);
+}
+
+.legend-dot-approx {
+  background: transparent;
+  border: 1.5px solid var(--text-secondary);
+}
+
+/* ─── County statistics ──────────────────────────────────────────────────
+   A dollar total cannot answer "is that a lot?" on its own. The rank chips
+   and state share do, so they sit directly under the headline rather than
+   in a table below the fold. */
+
+.county-name {
+  font: var(--type-title);
+  margin: 0 24px 10px 0;
+  letter-spacing: -0.01em;
+}
+
+.county-loading,
+.county-empty {
+  font: var(--type-body);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.county-hero {
+  font: var(--type-hero);
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.county-hero-label {
+  font: var(--type-micro);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 2px 0 14px;
+}
+
+.county-ribbon {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.county-chip {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 7px 8px;
+}
+
+.county-chip-n {
+  font: var(--type-title);
+  letter-spacing: -0.02em;
+}
+
+.county-chip-l {
+  font: var(--type-micro);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+.county-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font: var(--type-body);
+}
+
+.county-muted {
+  color: var(--text-muted);
+}
+
+.county-bar {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 5px 0 4px;
+}
+
+.county-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--pin-forgiven);
+}
+
+.county-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.county-cell {
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 7px 9px;
+}
+
+.county-cell-n {
+  font: var(--type-body);
+  font-weight: 640;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.county-cell-l {
+  font: var(--type-micro);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Caveats stay attached to the figures they qualify. The precision share is
+   a standing project invariant and the jobs note prevents a
+   cost-per-job-saved reading the data cannot support — neither belongs
+   behind a disclosure. */
+.county-caveat {
+  font: var(--type-micro);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 12px 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: 9px;
+}
+
+/* ─── Mobile shell ───────────────────────────────────────────────────────
+   Below 640px App renders MobileShell instead of the sidebar: a compact top
+   bar plus one bottom sheet whose payload switches with the selection. */
+
+.mobile-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px;
+  background: var(--surface-1);
+  box-shadow: var(--elev-panel);
+  /* No backdrop-filter: it recomputes the blur every frame over a
+     continuously-repainting WebGL canvas. See docs/design-spec.md §3.7. */
+}
+
+.mobile-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mobile-title {
+  font: var(--type-title);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  box-shadow: var(--elev-panel);
+  transition: height var(--motion-base) var(--ease);
+  contain: layout paint;
+}
+
+/* The whole handle is the touch target — 44px, not the 4px grip you see. */
+.sheet-handle {
+  flex: 0 0 auto;
+  height: 44px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sheet-handle:active {
+  cursor: grabbing;
+}
+
+.sheet-grip {
+  width: 34px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* At peek the sheet is a header strip; hiding the overflow keeps content
+   from bleeding past the rounded top edge mid-transition. */
+.sheet[data-detent="0"] .sheet-body {
+  overflow: hidden;
+}
+
+/* Below 640px the legend starts collapsed to the chip (see MapLegend.tsx).
+   It is never display:none — the legend is the pin palette's required
+   secondary encoding and must stay reachable at every viewport. It now has
+   to clear the bottom sheet's peek height rather than the footer. */
+@media (max-width: 640px) {
+  /* --sheet-height is published by BottomSheet so both of these track the
+     sheet as it moves between detents instead of assuming its peek size. */
+  .map-legend,
+  .map-legend-chip {
+    /* Clear both the sheet and the attribution strip, which wraps to three
+       lines at 390px. */
+    bottom: calc(var(--sheet-height, 12dvh) + 88px);
+    /* The sheet owns the bottom edge; sit above it, against the right. */
+    left: auto;
+    right: 12px;
+    transition: bottom var(--motion-base) var(--ease);
+  }
+
+  /* The footer carries the Geocodio CC BY 4.0 attribution, which the licence
+     requires to be visible in the UI — so it is compacted to a single strip
+     above the sheet, never hidden. See CLAUDE.md invariants. */
+  .app-footer {
+    bottom: var(--sheet-height, 12dvh);
+    transition: bottom var(--motion-base) var(--ease);
+    gap: 8px;
+    padding: 5px 12px calc(env(safe-area-inset-bottom, 0px) / 2 + 5px);
+    font: var(--type-micro);
+    font-size: 10px;
+    line-height: 1.35;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+.app-panel-right {
+  animation: detail-in var(--motion-slow) var(--ease);
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.detail-card-name {
+  font: var(--type-title);
+  margin: 0 24px 2px 0;
+  letter-spacing: -0.01em;
+}
+
+.detail-card-place {
+  font: var(--type-micro);
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+
+.detail-card-amount {
+  font: var(--type-hero);
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-pill);
+  font: var(--type-micro);
+  font-weight: 600;
+  background: color-mix(in oklab, var(--pill-hue) 12%, var(--surface-1));
+  color: color-mix(in oklab, var(--pill-hue) 70%, var(--text-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--pill-hue) 25%, transparent);
+}
+
+.status-pill[data-state="forgiven"] {
+  --pill-hue: var(--pin-forgiven);
+}
+
+.status-pill[data-state="unforgiven"] {
+  --pill-hue: var(--pin-unforgiven);
+}
+
+.status-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pill-hue);
+}
+
+.detail-card-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  font: var(--type-body);
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.detail-card-fields dt {
+  color: var(--text-muted);
+}
+
+.detail-card-fields dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.detail-card-precision {
+  font: var(--type-micro);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 8px 10px;
+  margin: 14px 0 0;
+}
+
+.app-subtitle {
+  font: var(--type-micro);
+  color: var(--text-muted);
+  margin: 2px 0 0;
 }

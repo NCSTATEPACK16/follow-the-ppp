@@ -31,6 +31,37 @@ export interface LoanTileProps {
   p: GeoPrecision;
 }
 
+/** One county's entry in county_stats.json (scripts/07_county_stats.py). */
+export interface CountyStats {
+  name: string;
+  state: string;
+  loan_count: number;
+  sum_approved: number;
+  sum_forgiven: number;
+  median_loan: number | null;
+  jobs_reported: number | null;
+  /** Competition rank by approved dollars, 1 = largest. Ties share a rank. */
+  state_rank: number;
+  state_n: number;
+  nat_rank: number;
+  /** Share of the state's approved dollars, one decimal. */
+  pct_state: number | null;
+  /** Forgiven / approved. Can exceed 100 — clamp the bar, not the number. */
+  forg_rate: number | null;
+  /** Share of loans at zip_centroid or unknown precision. */
+  approx_pct: number | null;
+}
+
+/** Properties baked into counties-240930-v1.pmtiles. */
+export interface CountyTileProps {
+  fips: string;
+  name: string;
+  state: string;
+  loan_count: number;
+  sum_approved: number;
+  sum_forgiven: number;
+}
+
 export interface Filters {
   minAmount: number | null;
   maxAmount: number | null;

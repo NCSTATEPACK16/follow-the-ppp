@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { searchByName } from "../lib/search";
+import { LoanRow } from "./LoanRow";
 import type { LoanRecord } from "../types";
 
 interface SearchBoxProps {
@@ -52,18 +53,14 @@ export function SearchBox({ states, onSelect, onResultsChange }: SearchBoxProps)
       {open && results.length > 0 && (
         <ul className="search-results">
           {results.map((loan) => (
-            <li
+            <LoanRow
               key={loan.loan_number}
-              onClick={() => {
-                onSelect(loan);
+              loan={loan}
+              onSelect={(l) => {
+                onSelect(l);
                 setOpen(false);
               }}
-            >
-              <strong>{loan.borrower_name}</strong>
-              <span>
-                {loan.city}, {loan.state} — ${loan.approved_amount.toLocaleString()}
-              </span>
-            </li>
+            />
           ))}
         </ul>
       )}
