@@ -18,3 +18,7 @@ web/*.tsbuildinfo
 
 # Brainstorming mockups (visual companion)
 .superpowers/
+
+__pycache__/
+*.pyc
+.pytest_cache/
