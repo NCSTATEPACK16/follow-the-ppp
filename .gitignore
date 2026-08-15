@@ -15,3 +15,6 @@ web/*.tsbuildinfo
 
 # Local Netlify folder
 .netlify
+
+# Brainstorming mockups (visual companion)
+.superpowers/
