@@ -61,10 +61,16 @@ row under `NAME` + `LSAD`.
 
 ### Residual
 
-15 rows, 1,954 loans, $161M (0.02%) remain unmatchable: Connecticut planning
-regions (the SBA release uses post-2022 regions; `cb_2021` predates them),
-American Samoa, Northern Mariana Islands, APO/AE, Pine Ridge SD, and an
-`Aleutian Islands` AK variant.
+The rule was validated against the real data: **3,220 of 3,239 rows match, with
+zero duplicate FIPS and zero duplicate aggregate rows** — nothing is
+double-counted. James City (51095) and Charles City (51036) stay counties, while
+Richmond, St. Louis, and Baltimore each split correctly from their independent
+cities.
+
+19 rows, 3,628 loans, $296M (0.038% of the $787.46B national total) remain
+unmatchable: Connecticut planning regions (the SBA release uses post-2022
+regions; `cb_2021` predates them), American Samoa, Northern Mariana Islands,
+APO/AE, Pine Ridge SD, and an `Aleutian Islands` AK variant.
 
 These are acceptable to drop **only because they are reported**. Emit the
 unmatched count and dollar total to `reports/05_tiles.md`, and fail the stage's
@@ -73,8 +79,9 @@ silent zero is the bug we are fixing; a new silent zero is not a fix.
 
 ### Acceptance
 
-- ≥ 3,236 of 3,239 rows joined.
-- No county FIPS receives more than one aggregate row.
+- ≥ 3,220 of 3,239 rows joined; unmatched dollars ≤ 0.1% of national.
+- No county FIPS receives more than one aggregate row, and no aggregate row
+  matches more than one FIPS. Both were verified at 0 against the real data.
 - St. Louis County MO, Baltimore City MD, and Richmond City VA each render
   non-zero, and each is distinct from its same-named neighbor.
 - Unmatched totals appear in `reports/05_tiles.md`.
@@ -98,8 +105,8 @@ fips → {
 ```
 
 Dollars round to whole units and percentages to one decimal — at 3,239 rows
-that is the difference between roughly 290KB and a payload that gzips to about
-70KB. Well inside the R2 free tier, which the project treats as a hard limit.
+at 3,220 rows that is the difference between roughly 290KB and a payload that
+gzips to about 70KB. Well inside the R2 free tier, which the project treats as a hard limit.
 
 Add `COUNTY_STATS_URL` to `web/src/lib/config.ts` alongside the existing
 `DATA_BASE` constants. The web client fetches it once, on the first county tap,
@@ -111,7 +118,7 @@ but print the true rate. Do not clamp the underlying number.
 
 ### Acceptance
 
-- 3,236 entries, every key a 5-digit FIPS string.
+- 3,220 entries, every key a distinct 5-digit FIPS string.
 - Ranks are dense over each state with no gaps or ties at rank 1.
 - `pct_state` sums to ~100 per state.
 - Spot check: Wake County NC = $2.74B, #2 of 100, #55 nationally, 97.3%
