@@ -66,6 +66,22 @@ describe("getCountyStats", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects on an HTTP error instead of reporting no statistics", async () => {
+    // The payload 404'd on R2 once (it shipped after the last deploy and was
+    // never uploaded). Without this check `r.json()` threw on the 404 body and
+    // every county rendered the "this county has no PPP statistics" empty
+    // state — a transport failure disguised as a fact about the data.
+    fetchSpy.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON");
+      },
+    });
+    const { getCountyStats } = await load();
+    await expect(getCountyStats("37183")).rejects.toThrow("404");
+  });
+
   it("does not cache a failed response", async () => {
     // A dropped request on a flaky connection must not poison every later
     // tap with a permanently rejected promise.

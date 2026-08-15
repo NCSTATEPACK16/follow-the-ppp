@@ -13,7 +13,12 @@ import { CountyStats } from "./components/CountyStats";
 import { MapLegend } from "./components/MapLegend";
 import { MobileShell } from "./components/MobileShell";
 import { useIsMobile } from "./lib/useIsMobile";
-import { getLoanByNumber, getRandomLoan, getTopLoans } from "./lib/search";
+import {
+  getLoanByNumber,
+  getRandomLoan,
+  getTopLoans,
+  prewarmSearch,
+} from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
 import { usePrefersReducedMotion } from "./lib/useReducedMotion";
@@ -31,8 +36,12 @@ export default function App() {
   const [selectedLoan, setSelectedLoan] = useState<{
     loanNumber: string;
     preview: LoanRecord | null;
+    /** Tile props from the tapped pin, so the panel paints without waiting. */
+    tile: LoanTileProps | null;
   } | null>(
-    initialLink.loan ? { loanNumber: initialLink.loan, preview: null } : null,
+    initialLink.loan
+      ? { loanNumber: initialLink.loan, preview: null, tile: null }
+      : null,
   );
   const [selectedCounty, setSelectedCounty] = useState<CountyTileProps | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -47,6 +56,20 @@ export default function App() {
 
   useEffect(() => {
     getTopLoans().then(setTopLoans);
+  }, []);
+
+  // Boot the DuckDB worker while the user is still reading the map, so the
+  // first tap on a pin pays for a lookup and not for a CDN download of the
+  // wasm module. Idle-scheduled so it never competes with the map's own
+  // first paint; the setTimeout is the Safari fallback.
+  useEffect(() => {
+    const idle = window.requestIdleCallback;
+    if (typeof idle === "function") {
+      const handle = idle(() => prewarmSearch(), { timeout: 4000 });
+      return () => window.cancelIdleCallback?.(handle);
+    }
+    const handle = window.setTimeout(prewarmSearch, 2000);
+    return () => window.clearTimeout(handle);
   }, []);
 
   const mapRef = useRef<MlMap | null>(null);
@@ -75,7 +98,7 @@ export default function App() {
   );
 
   const flyToAndSelect = useCallback((loan: LoanRecord) => {
-    setSelectedLoan({ loanNumber: loan.loan_number, preview: loan });
+    setSelectedLoan({ loanNumber: loan.loan_number, preview: loan, tile: null });
     mapRef.current?.flyTo({ center: [loan.lng, loan.lat], zoom: 13 });
     writeDeepLink({ loan: loan.loan_number, ...viewRef.current, lat: loan.lat, lng: loan.lng });
   }, []);
@@ -93,7 +116,10 @@ export default function App() {
   }, [flyToAndSelect]);
 
   const handleTileClick = useCallback((props: LoanTileProps) => {
-    setSelectedLoan({ loanNumber: props.id, preview: null });
+    // Keep the tile's own properties: they are enough to render the headline
+    // of the card immediately, instead of a "Loading record…" placeholder for
+    // data that arrived with the pin.
+    setSelectedLoan({ loanNumber: props.id, preview: null, tile: props });
     // A loan and a county never occupy the panel at once.
     setSelectedCounty(null);
     writeDeepLink({ loan: props.id, ...viewRef.current });
@@ -184,6 +210,7 @@ export default function App() {
     <DetailCard
       loanNumber={selectedLoan.loanNumber}
       preview={selectedLoan.preview}
+      tile={selectedLoan.tile}
       onClose={handleCloseDetail}
     />
   ) : null;

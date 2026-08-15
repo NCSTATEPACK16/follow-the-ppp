@@ -1,5 +1,10 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
-import { SEARCH_INDEX_URL, STATE_INDEX_BASE_URL, TOP_LOANS_URL } from "./config";
+import {
+  LOAN_LOOKUP_URL,
+  SEARCH_INDEX_URL,
+  STATE_INDEX_BASE_URL,
+  TOP_LOANS_URL,
+} from "./config";
 import type { LoanRecord } from "../types";
 
 let dbPromise: Promise<duckdb.AsyncDuckDB> | null = null;
@@ -31,13 +36,17 @@ async function getDb(): Promise<duckdb.AsyncDuckDB> {
       // The worker resolves URLs against its own script origin (the jsdelivr
       // CDN), not the page's — a relative path like "/data/..." fails there,
       // so always pass an absolute URL.
-      const absoluteUrl = new URL(SEARCH_INDEX_URL, window.location.href).href;
-      await db.registerFileURL(
-        "search_index.parquet",
-        absoluteUrl,
-        duckdb.DuckDBDataProtocol.HTTP,
-        false,
-      );
+      for (const [alias, url] of [
+        ["search_index.parquet", SEARCH_INDEX_URL],
+        ["loan_lookup.parquet", LOAN_LOOKUP_URL],
+      ] as const) {
+        await db.registerFileURL(
+          alias,
+          new URL(url, window.location.href).href,
+          duckdb.DuckDBDataProtocol.HTTP,
+          false,
+        );
+      }
       return db;
     })();
   }
@@ -176,25 +185,84 @@ export async function getTopLoans(): Promise<LoanRecord[]> {
   return topLoansPromise;
 }
 
-/** USING SAMPLE takes a single-pass reservoir sample instead of sorting/scanning the whole table. */
+/** Loan numbers in the SBA release are 10 digits, 1000000000–9999999999. */
+const LOAN_NUMBER_MIN = 1_000_000_000;
+const LOAN_NUMBER_MAX = 9_999_999_999;
+
+/**
+ * Some loan, for the "random loan" button.
+ *
+ * Seeks to a random point in the key space and takes the next loan at or after
+ * it, which the sorted index answers by reading one row group. `USING SAMPLE 1
+ * ROWS`, the honest way to ask for this, is a reservoir sample: single-pass,
+ * but the pass is over all 11.4M rows — every column, off a remote 484MB file.
+ * Loan numbers are not perfectly dense, so this is uniform over the key space
+ * rather than over rows; for a "show me something" button that is the right
+ * trade for turning ~20s into one range request.
+ */
 export async function getRandomLoan(): Promise<LoanRecord | null> {
   const conn = await getConn();
+  const seek = Math.floor(
+    LOAN_NUMBER_MIN + Math.random() * (LOAN_NUMBER_MAX - LOAN_NUMBER_MIN),
+  );
   const result = await conn.query(`
-    SELECT * FROM parquet_scan('search_index.parquet')
-    USING SAMPLE 1 ROWS
+    SELECT ${DETAIL_COLUMNS} FROM parquet_scan('loan_lookup.parquet')
+    WHERE loan_number >= '${seek}'
+    ORDER BY loan_number
+    LIMIT 1
   `);
   const rows = result.toArray();
-  return rows.length ? rowToLoan(rows[0].toJSON() as Record<string, unknown>) : null;
+  if (rows.length) return rowToLoan(rows[0].toJSON() as Record<string, unknown>);
+  // The seek landed past the largest loan number — wrap to the first.
+  const wrapped = await conn.query(`
+    SELECT ${DETAIL_COLUMNS} FROM parquet_scan('loan_lookup.parquet')
+    ORDER BY loan_number LIMIT 1
+  `);
+  const first = wrapped.toArray();
+  return first.length ? rowToLoan(first[0].toJSON() as Record<string, unknown>) : null;
 }
 
+/** Columns the detail card renders — the whole of loan_lookup.parquet. */
+const DETAIL_COLUMNS = `
+  loan_number, borrower_name, city, state, zip, naics, business_type,
+  jobs_reported, date_approved, approved_amount, forgiven_amount,
+  loan_status, originating_lender, lat, lng, geo_precision
+`;
+
+/**
+ * One loan by its number — the tap-a-pin path, so it has to be quick.
+ *
+ * It is quick because loan_lookup.parquet is written sorted by `loan_number`
+ * in 50k-row groups (scripts/06_search_index.py): DuckDB reads the footer,
+ * uses each row group's min/max on `loan_number` to skip every group but one,
+ * and range-requests that group alone. Measured at 3.1MB over 5 range
+ * requests. Running the same query against the search index, whose row groups
+ * each span the entire key range and so prune nothing, measured 65.5MB over 96
+ * requests — that was the "Loading record..." stall.
+ */
 export async function getLoanByNumber(loanNumber: string): Promise<LoanRecord | null> {
   const conn = await getConn();
   const escaped = loanNumber.replace(/'/g, "''");
   const result = await conn.query(`
-    SELECT * FROM parquet_scan('search_index.parquet')
+    SELECT ${DETAIL_COLUMNS} FROM parquet_scan('loan_lookup.parquet')
     WHERE loan_number = '${escaped}'
     LIMIT 1
   `);
   const rows = result.toArray();
   return rows.length ? rowToLoan(rows[0].toJSON() as Record<string, unknown>) : null;
+}
+
+/**
+ * Boots the DuckDB worker ahead of the first query.
+ *
+ * Instantiating duckdb-wasm means pulling a worker script and a multi-megabyte
+ * wasm module off the jsdelivr CDN. Left until the first tap on a pin, that
+ * cost lands in full on the user's first interaction. Called from an idle
+ * callback at startup instead, it is usually already paid by then.
+ */
+export function prewarmSearch(): void {
+  void getConn().catch(() => {
+    // A failed prewarm is not an error the user needs: the real query will
+    // retry and surface it in context.
+  });
 }

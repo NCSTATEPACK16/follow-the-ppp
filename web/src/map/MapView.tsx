@@ -16,9 +16,17 @@ function topLoansToGeoJson(loans: LoanRecord[]): GeoJSON.FeatureCollection {
     features: loans.map((loan) => ({
       type: "Feature",
       geometry: { type: "Point", coordinates: [loan.lng, loan.lat] },
-      // `f` mirrors the tile layer's short key so both layers can share one
-      // color expression.
-      properties: { id: loan.loan_number, f: loan.forgiven_amount ?? 0 },
+      // Short keys mirror the tile layer's schema (scripts/05_tiles.py), so
+      // both layers share one color expression and one click payload —
+      // amounts in integer cents, as the tiles store them.
+      properties: {
+        id: loan.loan_number,
+        n: loan.borrower_name,
+        a: Math.round(loan.approved_amount * 100),
+        f: Math.round((loan.forgiven_amount ?? 0) * 100),
+        s: loan.loan_status ?? "",
+        p: loan.geo_precision,
+      },
     })),
   };
 }
@@ -132,13 +140,13 @@ export function MapView({
           map.getCanvas().style.cursor = "";
         });
 
-        // top-loans-circle carries only the loan id (see topLoansToGeoJson) —
-        // that's all onLoanClick needs, since DetailCard re-fetches the full
-        // record by loan number regardless of how it was opened.
+        // top-loans-circle carries the same short-key schema as the tile
+        // layer (see topLoansToGeoJson), so a tap here opens an already
+        // readable card while the full record is fetched.
         map.on("click", "top-loans-circle", (e) => {
           const feature = e.features?.[0];
           if (feature) {
-            onLoanClickRef.current({ id: feature.properties?.id } as LoanTileProps);
+            onLoanClickRef.current(feature.properties as LoanTileProps);
           }
         });
         map.on("mouseenter", "top-loans-circle", () => {
