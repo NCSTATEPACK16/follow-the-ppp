@@ -30,6 +30,14 @@ import sys
 import time
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
+
+# r2.dev is rate limited. 16 workers against the 9,000 detail shards drew a
+# 429 on every single read; 6 with the backoff in head() sweeps them cleanly.
+# Uploads go to the S3 API, which is not the throttled surface, so they keep a
+# wider pool.
+WORKERS = 6
+UPLOAD_WORKERS = 16
 
 TILES = 'tiles'
 INTERIM = 'data/interim'
@@ -40,6 +48,8 @@ HOURLY = 'public, max-age=3600'
 
 # Keep in step with web/src/lib/config.ts. Every URL the frontend builds must
 # appear here, or it 404s in production and nowhere else.
+GZIP = 'gzip'
+
 MANIFEST = [
     (f'{TILES}/counties-240930-v2.pmtiles', 'tiles/counties-240930-v2.pmtiles',
      'application/octet-stream', IMMUTABLE),
@@ -58,6 +68,12 @@ MANIFEST = [
 ]
 
 STATE_SHARD_DIR = f'{INTERIM}/states'
+# 9,000 objects (scripts/07b_detail_shards.py). Stored gzipped and served with
+# Content-Encoding: gzip, because r2.dev returns stored bytes as-is and does
+# not compress on the fly — measured: county_stats.json arrives at its full
+# 785KB. The object keeps the .json.gz name the frontend fetches.
+DETAIL_SHARD_DIR = f'{INTERIM}/details-240930-v1'
+DETAIL_KEY_PREFIX = 'data/details-240930-v1'
 
 
 def load_env(path='.env'):
@@ -73,13 +89,24 @@ def load_env(path='.env'):
 
 
 def manifest():
-    """The fixed entries plus one per state shard."""
-    items = list(MANIFEST)
+    """
+    The fixed entries, plus one per state shard and one per detail shard.
+
+    Entries are (local path, object key, content type, cache policy, content
+    encoding). Encoding is None for everything except the detail shards.
+    """
+    items = [(src, key, ctype, cache, None) for src, key, ctype, cache in MANIFEST]
     if os.path.isdir(STATE_SHARD_DIR):
         for name in sorted(os.listdir(STATE_SHARD_DIR)):
             if name.endswith('.parquet'):
                 items.append((f'{STATE_SHARD_DIR}/{name}', f'data/states/{name}',
-                              'application/octet-stream', IMMUTABLE))
+                              'application/octet-stream', IMMUTABLE, None))
+    if os.path.isdir(DETAIL_SHARD_DIR):
+        for name in sorted(os.listdir(DETAIL_SHARD_DIR)):
+            if name.endswith('.json.gz'):
+                items.append((f'{DETAIL_SHARD_DIR}/{name}',
+                              f'{DETAIL_KEY_PREFIX}/{name}',
+                              'application/json', IMMUTABLE, GZIP))
     return items
 
 
@@ -90,14 +117,20 @@ USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36')
 
 
-def head(url, attempts=3):
+def head(url, attempts=6):
     """
     (status, content_length) for the public URL, without downloading it.
 
     Retries transport errors. Sweeping 66 objects in a row draws the occasional
     connection reset from r2.dev, and reporting that as a missing object would
     send this script off to re-upload half a gigabyte that is already there.
-    An HTTP status, including 404, is an answer and is returned as-is.
+    A 404 is an answer and is returned as-is.
+
+    429 is also retried, with a widening backoff. r2.dev is rate limited, and
+    at 9,000 detail shards a sweep will hit that limit — the first run of this
+    against the shards reported all 9,000 as failed when every one of them had
+    uploaded correctly. A throttle is not a missing object, and must never be
+    reported as one.
     """
     request = urllib.request.Request(url, method='HEAD',
                                      headers={'User-Agent': USER_AGENT})
@@ -106,7 +139,11 @@ def head(url, attempts=3):
             with urllib.request.urlopen(request, timeout=30) as response:
                 return response.status, int(response.headers.get('Content-Length', 0))
         except urllib.error.HTTPError as err:
-            return err.code, 0
+            if err.code != 429:
+                return err.code, 0
+            if attempt == attempts - 1:
+                return 429, 0
+            time.sleep(2 ** attempt)
         except (urllib.error.URLError, TimeoutError, ConnectionError) as err:
             reason = getattr(err, 'reason', err)
             if attempt == attempts - 1:
@@ -132,41 +169,56 @@ def main():
 
     items = manifest()
 
-    missing_local = [src for src, _, _, _ in items if not os.path.exists(src)]
+    missing_local = [src for src, _, _, _, _ in items if not os.path.exists(src)]
     if missing_local:
         sys.exit("Missing local files, run the earlier stages first:\n  " +
-                 "\n  ".join(missing_local))
+                 "\n  ".join(missing_local[:10]) +
+                 (f"\n  ... and {len(missing_local) - 10} more"
+                  if len(missing_local) > 10 else ""))
 
-    print(f"Checking {len(items)} objects against {PUBLIC_BASE} ...")
-    stale = []
-    for src, key, ctype, cache in items:
-        local_size = os.path.getsize(src)
+    print(f"Checking {len(items):,} objects against {PUBLIC_BASE} ...")
+
+    def check(item):
+        src, key, ctype, cache, encoding = item
         status, remote_size = head(f'{PUBLIC_BASE}/{key}')
         if status != 200:
-            print(f"  MISSING  {key}  (HTTP {status})")
-            stale.append((src, key, ctype, cache))
-        elif cache is IMMUTABLE:
+            return item, f"MISSING  {key}  (HTTP {status})"
+        if cache is IMMUTABLE:
             # Presence is the whole check for a versioned asset. Its content is
             # pinned to its name, so a size difference here means a rebuild
             # recompressed identical rows a few bytes differently — re-uploading
             # half a gigabyte for that would be pure waste. Changed content
             # takes a new name and shows up as MISSING above.
-            continue
-        elif remote_size != local_size:
-            print(f"  STALE    {key}  (remote {remote_size:,} != local {local_size:,})")
-            stale.append((src, key, ctype, cache))
+            return None, None
+        if remote_size != os.path.getsize(src):
+            return item, (f"STALE    {key}  "
+                          f"(remote {remote_size:,} != local {os.path.getsize(src):,})")
+        return None, None
+
+    # Threaded: the detail shards alone are 9,000 objects, and a serial sweep
+    # at ~150ms per HEAD is twenty minutes of waiting to learn nothing changed.
+    stale = []
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        for item, message in pool.map(check, items):
+            if item is not None:
+                stale.append(item)
+                # One line per shard would bury the real entries in 9,000 lines.
+                if len(stale) <= 40:
+                    print(f"  {message}")
+    if len(stale) > 40:
+        print(f"  ... and {len(stale) - 40:,} more")
 
     if args.force:
         stale = items
 
     if not stale:
-        total_gb = sum(os.path.getsize(s) for s, _, _, _ in items) / 1024**3
-        print(f"\nAll {len(items)} objects present and current. "
+        total_gb = sum(os.path.getsize(s) for s, _, _, _, _ in items) / 1024**3
+        print(f"\nAll {len(items):,} objects present and current. "
               f"R2 usage {total_gb:.2f} GB of the 10 GB free tier.")
         return
 
     if args.verify:
-        print(f"\n{len(stale)} object(s) need uploading. Re-run without --verify.")
+        print(f"\n{len(stale):,} object(s) need uploading. Re-run without --verify.")
         sys.exit(1)
 
     import boto3
@@ -178,27 +230,46 @@ def main():
         region_name='auto',
     )
 
-    for src, key, ctype, cache in stale:
-        mb = os.path.getsize(src) / 1024 / 1024
-        print(f"  uploading {key} ({mb:,.1f} MB)...")
-        client.upload_file(src, bucket, key, ExtraArgs={
-            'ContentType': ctype,
-            'CacheControl': cache,
-        })
+    done = [0]
+
+    def upload(item):
+        src, key, ctype, cache, encoding = item
+        extra = {'ContentType': ctype, 'CacheControl': cache}
+        if encoding:
+            extra['ContentEncoding'] = encoding
+        client.upload_file(src, bucket, key, ExtraArgs=extra)
+        done[0] += 1
+        if len(stale) > 40:
+            print(f"  uploaded {done[0]:,}/{len(stale):,}...", end='\r')
+        else:
+            print(f"  uploaded {key} ({os.path.getsize(src)/1024/1024:,.1f} MB)")
+
+    print(f"\nUploading {len(stale):,} object(s)...")
+    with ThreadPoolExecutor(max_workers=UPLOAD_WORKERS) as pool:
+        list(pool.map(upload, stale))
 
     # Read back over the public URL, not the API: a PUT that succeeded against
     # a bucket the site cannot read is not a deploy.
     print("\nVerifying over the public URL...")
-    failures = []
-    for src, key, _, _ in stale:
-        status, remote_size = head(f'{PUBLIC_BASE}/{key}')
-        local_size = os.path.getsize(src)
-        ok = status == 200 and remote_size == local_size
-        print(f"  {'OK  ' if ok else 'FAIL'}  {key}  HTTP {status}  {remote_size:,} bytes")
-        if not ok:
-            failures.append(key)
 
-    total_gb = sum(os.path.getsize(s) for s, _, _, _ in items) / 1024**3
+    def verify(item):
+        src, key, _, _, _ = item
+        status, remote_size = head(f'{PUBLIC_BASE}/{key}')
+        # A gzipped object's stored length is what R2 reports, and that is what
+        # is on disk here — the .gz file is uploaded byte-for-byte.
+        ok = status == 200 and remote_size == os.path.getsize(src)
+        return key, status, remote_size, ok
+
+    failures = []
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        for key, status, remote_size, ok in pool.map(verify, stale):
+            if not ok:
+                failures.append(key)
+                print(f"  FAIL  {key}  HTTP {status}  {remote_size:,} bytes")
+    print(f"  {len(stale) - len(failures):,} of {len(stale):,} verified over "
+          f"{PUBLIC_BASE}")
+
+    total_gb = sum(os.path.getsize(s) for s, _, _, _, _ in items) / 1024**3
     print(f"\nR2 usage: {total_gb:.2f} GB of the 10 GB free tier.")
     if failures:
         sys.exit(f"{len(failures)} object(s) failed verification: {failures}")

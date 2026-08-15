@@ -34,6 +34,19 @@ export const SEARCH_INDEX_URL = `${DATA_BASE}/search_index.parquet`;
  * cost storage, which the budget has, instead of speed, which it does not.
  */
 export const LOAN_LOOKUP_URL = `${DATA_BASE}/loan_lookup-240930-v1.parquet`;
+
+/**
+ * The same records as loan_lookup.parquet, pre-sharded into 9,000 static
+ * gzipped JSON files by the first four digits of the loan number
+ * (scripts/07b_detail_shards.py). This is what a pin tap reads.
+ *
+ * The parquet above is now only the fallback for it: answering a tap from
+ * parquet means booting DuckDB-WASM, which is 6.8MB of compressed wasm to
+ * download and 34MB to compile before the query — measured as tens of seconds
+ * on iOS Safari over cellular, against ~1.1s for the query itself. A shard is
+ * one fetch of ~80KB and no wasm at all.
+ */
+export const DETAILS_BASE_URL = `${DATA_BASE}/details-240930-v1`;
 export const STATE_INDEX_BASE_URL = `${DATA_BASE}/states`;
 export const TOP_LOANS_URL = `${DATA_BASE}/top_loans.json`;
 // Per-county aggregates for the county sheet (scripts/07_county_stats.py).

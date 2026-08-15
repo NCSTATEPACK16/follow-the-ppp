@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { searchByName } from "../lib/search";
+import { prewarmSearch, searchByName } from "../lib/search";
 import { LoanRow } from "./LoanRow";
 import type { LoanRecord } from "../types";
 
@@ -47,7 +47,13 @@ export function SearchBox({ states, onSelect, onResultsChange }: SearchBoxProps)
         placeholder="Search borrower name…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => results.length && setOpen(true)}
+        onFocus={() => {
+          // Start the DuckDB boot here rather than on page load: this is the
+          // first moment the engine is on the path to an answer, and it buys
+          // the ~250ms debounce plus however long the user takes to type.
+          prewarmSearch();
+          if (results.length) setOpen(true);
+        }}
       />
       {loading && <div className="search-status">Searching…</div>}
       {open && results.length > 0 && (

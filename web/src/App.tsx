@@ -15,12 +15,7 @@ import { MobileShell } from "./components/MobileShell";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useIsMobile } from "./lib/useIsMobile";
 import { useTheme } from "./lib/useTheme";
-import {
-  getLoanByNumber,
-  getRandomLoan,
-  getTopLoans,
-  prewarmSearch,
-} from "./lib/search";
+import { getLoanByNumber, getRandomLoan, getTopLoans } from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
 import { usePrefersReducedMotion } from "./lib/useReducedMotion";
@@ -59,20 +54,6 @@ export default function App() {
 
   useEffect(() => {
     getTopLoans().then(setTopLoans);
-  }, []);
-
-  // Boot the DuckDB worker while the user is still reading the map, so the
-  // first tap on a pin pays for a lookup and not for a CDN download of the
-  // wasm module. Idle-scheduled so it never competes with the map's own
-  // first paint; the setTimeout is the Safari fallback.
-  useEffect(() => {
-    const idle = window.requestIdleCallback;
-    if (typeof idle === "function") {
-      const handle = idle(() => prewarmSearch(), { timeout: 4000 });
-      return () => window.cancelIdleCallback?.(handle);
-    }
-    const handle = window.setTimeout(prewarmSearch, 2000);
-    return () => window.clearTimeout(handle);
   }, []);
 
   const mapRef = useRef<MlMap | null>(null);

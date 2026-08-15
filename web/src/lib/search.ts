@@ -5,6 +5,8 @@ import {
   STATE_INDEX_BASE_URL,
   TOP_LOANS_URL,
 } from "./config";
+import { getLoanDetail, getRandomLoanDetail } from "./details";
+import { rowToLoan } from "./loanRecord";
 import type { LoanRecord } from "../types";
 
 let dbPromise: Promise<duckdb.AsyncDuckDB> | null = null;
@@ -103,36 +105,6 @@ function normalizeName(raw: string): string {
     .trim();
 }
 
-/** duckdb-wasm returns DATE columns as epoch-millisecond numbers/BigInts, not strings. */
-function formatDate(raw: unknown): string | null {
-  if (raw == null) return null;
-  const ms = Number(raw);
-  if (!Number.isFinite(ms)) return String(raw);
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-function rowToLoan(row: Record<string, unknown>): LoanRecord {
-  return {
-    loan_number: String(row.loan_number),
-    borrower_name: String(row.borrower_name ?? ""),
-    city: String(row.city ?? ""),
-    state: String(row.state ?? ""),
-    zip: String(row.zip ?? ""),
-    naics: row.naics != null ? String(row.naics) : null,
-    business_type: row.business_type != null ? String(row.business_type) : null,
-    jobs_reported: row.jobs_reported != null ? Number(row.jobs_reported) : null,
-    date_approved: formatDate(row.date_approved),
-    approved_amount: Number(row.approved_amount ?? 0),
-    forgiven_amount: row.forgiven_amount != null ? Number(row.forgiven_amount) : null,
-    loan_status: row.loan_status != null ? String(row.loan_status) : null,
-    originating_lender:
-      row.originating_lender != null ? String(row.originating_lender) : null,
-    lat: Number(row.lat),
-    lng: Number(row.lng),
-    geo_precision: (row.geo_precision as LoanRecord["geo_precision"]) ?? "none",
-  };
-}
-
 /** Only ever built from the fixed STATE_LABELS dropdown, but validated anyway before it's interpolated into SQL/file paths. */
 function validStateCodes(states: string[]): string[] {
   return states.filter((s) => /^[A-Z]{2}$/.test(s));
@@ -192,15 +164,28 @@ const LOAN_NUMBER_MAX = 9_999_999_999;
 /**
  * Some loan, for the "random loan" button.
  *
- * Seeks to a random point in the key space and takes the next loan at or after
- * it, which the sorted index answers by reading one row group. `USING SAMPLE 1
- * ROWS`, the honest way to ask for this, is a reservoir sample: single-pass,
- * but the pass is over all 11.4M rows — every column, off a remote 484MB file.
- * Loan numbers are not perfectly dense, so this is uniform over the key space
- * rather than over rows; for a "show me something" button that is the right
- * trade for turning ~20s into one range request.
+ * Served from the detail shards, so the button no longer boots DuckDB either.
+ * The parquet seek below stands in only if the shard fetch fails.
  */
 export async function getRandomLoan(): Promise<LoanRecord | null> {
+  try {
+    const loan = await getRandomLoanDetail();
+    if (loan) return loan;
+  } catch {
+    // Fall through to the engine.
+  }
+  return randomLoanFromParquet();
+}
+
+/**
+ * The pre-shard implementation, kept as the fallback path.
+ *
+ * Seeks to a random point in the key space and takes the next loan at or after
+ * it, which the sorted index answers by reading one row group. Loan numbers
+ * are not perfectly dense, so this is uniform over the key space rather than
+ * over rows; for a "show me something" button that is the right trade.
+ */
+async function randomLoanFromParquet(): Promise<LoanRecord | null> {
   const conn = await getConn();
   const seek = Math.floor(
     LOAN_NUMBER_MIN + Math.random() * (LOAN_NUMBER_MAX - LOAN_NUMBER_MIN),
@@ -232,15 +217,31 @@ const DETAIL_COLUMNS = `
 /**
  * One loan by its number — the tap-a-pin path, so it has to be quick.
  *
- * It is quick because loan_lookup.parquet is written sorted by `loan_number`
- * in 50k-row groups (scripts/06_search_index.py): DuckDB reads the footer,
- * uses each row group's min/max on `loan_number` to skip every group but one,
- * and range-requests that group alone. Measured at 3.1MB over 5 range
- * requests. Running the same query against the search index, whose row groups
- * each span the entire key range and so prune nothing, measured 65.5MB over 96
- * requests — that was the "Loading record..." stall.
+ * Answered from the static detail shards (lib/details.ts), which is one
+ * ~80KB fetch and no WebAssembly. The parquet query below is the fallback,
+ * and it is a real one rather than defensive decoration: `county_stats.json`
+ * once shipped in the pipeline and never reached the bucket, and nothing in
+ * the UI could tell a missing object from missing data. If the shards 404,
+ * this path still answers — slowly, but correctly.
  */
 export async function getLoanByNumber(loanNumber: string): Promise<LoanRecord | null> {
+  try {
+    return await getLoanDetail(loanNumber);
+  } catch {
+    return loanFromParquet(loanNumber);
+  }
+}
+
+/**
+ * The pre-shard implementation, kept as the fallback path.
+ *
+ * loan_lookup.parquet is written sorted by `loan_number` in 50k-row groups
+ * (scripts/06_search_index.py): DuckDB reads the footer, uses each row group's
+ * min/max on `loan_number` to skip every group but one, and range-requests
+ * that group alone. Measured at 3.1MB over 5 range requests — about 1.1s once
+ * the engine is up, which is the part the shards remove.
+ */
+async function loanFromParquet(loanNumber: string): Promise<LoanRecord | null> {
   const conn = await getConn();
   const escaped = loanNumber.replace(/'/g, "''");
   const result = await conn.query(`
@@ -253,12 +254,18 @@ export async function getLoanByNumber(loanNumber: string): Promise<LoanRecord | 
 }
 
 /**
- * Boots the DuckDB worker ahead of the first query.
+ * Boots the DuckDB worker ahead of the first *search*.
  *
- * Instantiating duckdb-wasm means pulling a worker script and a multi-megabyte
- * wasm module off the jsdelivr CDN. Left until the first tap on a pin, that
- * cost lands in full on the user's first interaction. Called from an idle
- * callback at startup instead, it is usually already paid by then.
+ * Instantiating duckdb-wasm means pulling a 189KB worker script and a 6.8MB
+ * compressed wasm module off the jsdelivr CDN, then compiling 34MB of engine.
+ *
+ * This used to run from an idle callback on every page load, because tapping a
+ * pin needed the engine. It no longer does — pin taps read the detail shards —
+ * so paying 7MB on a phone for a visitor who only ever looks at the map is
+ * pure waste, and worse, it competed with MapLibre for the same cellular
+ * connection while the map was still drawing. It is now called when the user
+ * touches the search box, which is the first moment the engine is actually on
+ * the path to an answer.
  */
 export function prewarmSearch(): void {
   void getConn().catch(() => {
