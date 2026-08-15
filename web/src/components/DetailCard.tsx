@@ -3,33 +3,68 @@ import { getLoanByNumber } from "../lib/search";
 import { precisionLabel } from "../lib/precision";
 import { SBA_SOURCE_URL } from "../lib/config";
 import { formatFullAmount, isForgiven, spokenAmount } from "../lib/format";
-import type { LoanRecord } from "../types";
+import type { LoanRecord, LoanTileProps } from "../types";
 
 interface DetailCardProps {
   loanNumber: string;
+  /** A full record already in hand (a search hit) — skips the query entirely. */
   preview?: LoanRecord | null;
+  /**
+   * Properties of the tapped pin. The tile carries the borrower name, both
+   * amounts, the status and the geocode precision, so the panel can be
+   * readable on the same frame as the tap and let the remote query fill in
+   * only what the tile cannot hold.
+   */
+  tile?: LoanTileProps | null;
   onClose: () => void;
 }
 
-export function DetailCard({ loanNumber, preview, onClose }: DetailCardProps) {
+/** Tile amounts are integer cents (see scripts/05_tiles.py build_loans). */
+const CENTS = 100;
+
+/** Unknown-until-loaded, rather than a claim the field is empty. */
+const PENDING = "…";
+
+export function DetailCard({ loanNumber, preview, tile, onClose }: DetailCardProps) {
   const [loan, setLoan] = useState<LoanRecord | null>(preview ?? null);
   const [loading, setLoading] = useState(!preview);
   const [notFound, setNotFound] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setNotFound(false);
-    getLoanByNumber(loanNumber).then((result) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (result) setLoan(result);
-      else setNotFound(true);
-    });
+    setFailed(false);
+    getLoanByNumber(loanNumber)
+      .then((result) => {
+        if (cancelled) return;
+        if (result) setLoan(result);
+        else setNotFound(true);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, [loanNumber]);
+
+  // Everything below reads through this: the full record when it has arrived,
+  // otherwise whatever the tapped tile knew. The two never disagree — both
+  // derive from the same SBA release — so the fields never rewrite themselves
+  // under the reader, they only gain the ones the tile had no room for.
+  const name = loan?.borrower_name ?? tile?.n ?? null;
+  const approved = loan?.approved_amount ?? (tile ? tile.a / CENTS : null);
+  const forgiven = loan?.forgiven_amount ?? (tile ? tile.f / CENTS : null);
+  const status = loan?.loan_status ?? tile?.s ?? null;
+  const precision = loan?.geo_precision ?? tile?.p ?? null;
+  const forgivenState = isForgiven({ forgiven_amount: forgiven });
+
+  const havePartial = name !== null && approved !== null;
 
   return (
     <div className="detail-card">
@@ -37,50 +72,61 @@ export function DetailCard({ loanNumber, preview, onClose }: DetailCardProps) {
         ×
       </button>
 
-      {loading && !loan && <p>Loading record…</p>}
-      {notFound && !loan && <p>No record found for loan {loanNumber} in the indexed data.</p>}
+      {loading && !havePartial && <p>Loading record…</p>}
+      {notFound && !havePartial && (
+        <p>No record found for loan {loanNumber} in the indexed data.</p>
+      )}
 
-      {loan && (
+      {havePartial && (
         <>
-          <h2 className="detail-card-name">{loan.borrower_name}</h2>
+          <h2 className="detail-card-name">{name}</h2>
           <p className="detail-card-place tnum">
-            {loan.city}, {loan.state} · {loan.zip}
+            {loan ? `${loan.city}, ${loan.state} · ${loan.zip}` : PENDING}
           </p>
 
           <p
             className="detail-card-amount"
-            aria-label={`Approved ${spokenAmount(loan.approved_amount)}`}
+            aria-label={`Approved ${spokenAmount(approved as number)}`}
           >
-            {formatFullAmount(loan.approved_amount)}
+            {formatFullAmount(approved as number)}
           </p>
 
           <p
             className="status-pill"
-            data-state={isForgiven(loan) ? "forgiven" : "unforgiven"}
+            data-state={forgivenState ? "forgiven" : "unforgiven"}
           >
             <span className="status-pill-dot" aria-hidden="true" />
-            {isForgiven(loan)
-              ? `Forgiven — ${formatFullAmount(loan.forgiven_amount ?? 0)}`
+            {forgivenState
+              ? `Forgiven — ${formatFullAmount(forgiven ?? 0)}`
               : "Not forgiven"}
           </p>
 
           <dl className="detail-card-fields">
             <dt>Approved</dt>
-            <dd className="tnum">{loan.date_approved ?? "Unknown"}</dd>
+            <dd className="tnum">{loan ? (loan.date_approved ?? "Unknown") : PENDING}</dd>
             <dt>Lender</dt>
-            <dd>{loan.originating_lender ?? "Unknown"}</dd>
+            <dd>{loan ? (loan.originating_lender ?? "Unknown") : PENDING}</dd>
             <dt>Business type</dt>
-            <dd>{loan.business_type ?? "Unknown"}</dd>
+            <dd>{loan ? (loan.business_type ?? "Unknown") : PENDING}</dd>
             <dt>Jobs reported</dt>
-            <dd className="tnum">{loan.jobs_reported ?? "Not reported"}</dd>
+            <dd className="tnum">
+              {loan ? (loan.jobs_reported ?? "Not reported") : PENDING}
+            </dd>
             <dt>Status</dt>
-            <dd>{loan.loan_status ?? "Unknown"}</dd>
+            <dd>{status ?? "Unknown"}</dd>
           </dl>
 
-          {loan.geo_precision !== "rooftop" && (
+          {precision !== null && precision !== "rooftop" && (
             <p className="detail-card-precision">
-              ⚠ {precisionLabel(loan.geo_precision)} — the pin is not
-              necessarily the business address.
+              ⚠ {precisionLabel(precision)} — the pin is not necessarily the
+              business address.
+            </p>
+          )}
+
+          {failed && (
+            <p className="detail-card-precision">
+              Couldn't load the full record — the figures above come from the
+              map tile.
             </p>
           )}
 

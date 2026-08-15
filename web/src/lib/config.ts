@@ -6,13 +6,34 @@ const TILES_BASE =
 const DATA_BASE =
   import.meta.env.VITE_DATA_BASE_URL?.replace(/\/$/, "") ?? "/data";
 
+// Every asset here is served from R2 with `Cache-Control: immutable,
+// max-age=31536000`, so a corrected file must take a NEW name — re-uploading
+// over the old one reaches nobody who has already visited. The county tiles
+// went to v2 when the FIPS join repair recovered $21.6B of counties that were
+// rendering as $0; the search index went to v2 when it was re-sorted by
+// loan_number for row-group pruning (scripts/06_search_index.py).
 export const TILE_URLS = {
-  counties: `${TILES_BASE}/counties-240930-v1.pmtiles`,
+  counties: `${TILES_BASE}/counties-240930-v2.pmtiles`,
   zips: `${TILES_BASE}/zips-240930-v1.pmtiles`,
   loans: `${TILES_BASE}/loans-240930-v1.pmtiles`,
 };
 
+/** Name search with no state filter: the whole country, scanned. Sorted by
+ *  state and name, which is what makes its per-state clustering compress. */
 export const SEARCH_INDEX_URL = `${DATA_BASE}/search_index.parquet`;
+
+/**
+ * One loan by its number: tapping a pin, opening a `?loan=` link, or the
+ * random-loan button.
+ *
+ * A second copy of the same records rather than a second use of the search
+ * index, because the two want opposite physical layouts. A point lookup is
+ * fast only when the file is sorted by the key it looks up, and sorting the
+ * search index that way scattered the names it exists to compress — 523MB to
+ * 638MB, and a 44% larger name column for every unfiltered search. Two files
+ * cost storage, which the budget has, instead of speed, which it does not.
+ */
+export const LOAN_LOOKUP_URL = `${DATA_BASE}/loan_lookup-240930-v1.parquet`;
 export const STATE_INDEX_BASE_URL = `${DATA_BASE}/states`;
 export const TOP_LOANS_URL = `${DATA_BASE}/top_loans.json`;
 // Per-county aggregates for the county sheet (scripts/07_county_stats.py).

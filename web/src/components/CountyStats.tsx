@@ -21,15 +21,27 @@ export function CountyStats({ fips, name, state }: CountyStatsProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [nationalCount, setNationalCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setFailed(false);
     Promise.all([getCountyStats(fips), getNationalCount()])
       .then(([county, count]) => {
         if (cancelled) return;
         setStats(county);
         setNationalCount(count);
+      })
+      .catch(() => {
+        // "The payload didn't arrive" and "this county has no PPP loans" are
+        // opposite claims. Collapsing the first into the second is how a
+        // missing R2 upload read as a fact about every county in the country.
+        if (!cancelled) {
+          setStats(null);
+          setFailed(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -37,7 +49,7 @@ export function CountyStats({ fips, name, state }: CountyStatsProps) {
     return () => {
       cancelled = true;
     };
-  }, [fips]);
+  }, [fips, attempt]);
 
   const perJob =
     stats && stats.jobs_reported
@@ -46,13 +58,28 @@ export function CountyStats({ fips, name, state }: CountyStatsProps) {
 
   return (
     <section className="county-stats">
+      {/* The payload is authoritative on identity when it has arrived; the
+          tile props only stand in until it does. */}
       <h2 className="county-name">
-        {name}, {state}
+        {stats?.name ?? name}, {stats?.state ?? state}
       </h2>
 
       {loading && <p className="county-loading">Loading statistics…</p>}
 
-      {!loading && !stats && (
+      {!loading && failed && (
+        <p className="county-empty">
+          Couldn't load county statistics.{" "}
+          <button
+            type="button"
+            className="county-retry"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
+            Try again
+          </button>
+        </p>
+      )}
+
+      {!loading && !failed && !stats && (
         <p className="county-empty">
           No PPP statistics for this county. Connecticut's planning regions and
           the territories have no counterpart in the Census county file, so they

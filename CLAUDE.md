@@ -23,3 +23,18 @@ name search and record detail. No backend service anywhere.
 ## Pipeline
 Run scripts/ in numeric order. Each is idempotent and writes to reports/.
 Never skip a stage's acceptance check.
+
+## Publishing (Stage 8)
+`python scripts/08_upload_r2.py` is the only way assets reach the bucket, and
+its manifest must stay in step with `web/src/lib/config.ts`. Anything the
+frontend asks for that is not in the manifest 404s in production and nowhere
+else — that is how `county_stats.json` shipped, never got uploaded, and made
+every county on the live site report "no PPP statistics".
+
+R2 serves these objects `immutable, max-age=31536000`. **A corrected file must
+take a new name** (`counties-240930-v2.pmtiles`), because overwriting the old
+name reaches nobody who has already visited. Only the unversioned JSON
+sidecars, cached for an hour, may be overwritten in place.
+
+Run `--verify` after any deploy: it reads every object back over the public URL,
+which is the only check that matches what a visitor actually gets.

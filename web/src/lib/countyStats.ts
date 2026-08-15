@@ -15,7 +15,16 @@ let statsPromise: Promise<Record<string, CountyStats>> | null = null;
 function loadAll(): Promise<Record<string, CountyStats>> {
   if (!statsPromise) {
     statsPromise = fetch(COUNTY_STATS_URL)
-      .then((r) => r.json() as Promise<Record<string, CountyStats>>)
+      .then(async (r) => {
+        // Check the status before parsing. A 404 body is HTML, so r.json()
+        // throws a SyntaxError that says nothing about what went wrong — and
+        // this payload has 404'd in production before, which every county
+        // then reported as "no PPP statistics for this county".
+        if (!r.ok) {
+          throw new Error(`${COUNTY_STATS_URL}: HTTP ${r.status}`);
+        }
+        return (await r.json()) as Record<string, CountyStats>;
+      })
       .catch((err) => {
         // Never leave a rejected promise cached: on a flaky connection that
         // would poison every later tap for the rest of the session.

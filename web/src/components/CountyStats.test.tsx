@@ -112,6 +112,16 @@ describe("CountyStats", () => {
       expect(await screen.findByText(/no ppp statistics/i)).toBeTruthy();
     });
 
+    it("distinguishes a failed load from a county with no data", async () => {
+      // These are opposite facts. Reporting a 404 as "this county has no PPP
+      // statistics" is a lie about the data, and it hid a missing R2 upload
+      // that made every county on the live site look empty.
+      mocked.mockRejectedValue(new Error("HTTP 404"));
+      render(<CountyStats fips="37183" name="Wake" state="NC" />);
+      expect(await screen.findByText(/couldn't load/i)).toBeTruthy();
+      expect(screen.queryByText(/no ppp statistics/i)).toBeNull();
+    });
+
     it("omits the per-job figure when jobs are missing", async () => {
       renderFor({ ...WAKE, jobs_reported: null });
       await screen.findByText("$2.74B");

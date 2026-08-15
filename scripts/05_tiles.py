@@ -138,7 +138,7 @@ def build_counties(con):
         '--layer=counties',
         '--no-tile-size-limit',
         county_geojson,
-    ], f'{TILES}/counties-240930-v1.pmtiles')
+    ], f'{TILES}/counties-240930-v2.pmtiles')
 
     return {
         'matched': len(by_fips), 'total': len(agg_rows),
