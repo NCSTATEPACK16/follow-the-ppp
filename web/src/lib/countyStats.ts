@@ -35,3 +35,15 @@ export async function getCountyStats(fips: string): Promise<CountyStats | null> 
   const all = await loadAll();
   return all[fips] ?? null;
 }
+
+/**
+ * How many counties a national rank is out of.
+ *
+ * Counted from the payload rather than hard-coded: it is the number of
+ * counties that actually have statistics, which is not the 3,234 polygons on
+ * the map — Connecticut's planning regions and the territories have no TIGER
+ * counterpart. "#55 of 3,226" is the honest denominator.
+ */
+export async function getNationalCount(): Promise<number> {
+  return Object.keys(await loadAll()).length;
+}

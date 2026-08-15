@@ -602,6 +602,131 @@ body,
   border: 1.5px solid var(--text-secondary);
 }
 
+/* ─── County statistics ──────────────────────────────────────────────────
+   A dollar total cannot answer "is that a lot?" on its own. The rank chips
+   and state share do, so they sit directly under the headline rather than
+   in a table below the fold. */
+
+.county-name {
+  font: var(--type-title);
+  margin: 0 24px 10px 0;
+  letter-spacing: -0.01em;
+}
+
+.county-loading,
+.county-empty {
+  font: var(--type-body);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.county-hero {
+  font: var(--type-hero);
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.county-hero-label {
+  font: var(--type-micro);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 2px 0 14px;
+}
+
+.county-ribbon {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.county-chip {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 7px 8px;
+}
+
+.county-chip-n {
+  font: var(--type-title);
+  letter-spacing: -0.02em;
+}
+
+.county-chip-l {
+  font: var(--type-micro);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+.county-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font: var(--type-body);
+}
+
+.county-muted {
+  color: var(--text-muted);
+}
+
+.county-bar {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 5px 0 4px;
+}
+
+.county-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--pin-forgiven);
+}
+
+.county-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.county-cell {
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 7px 9px;
+}
+
+.county-cell-n {
+  font: var(--type-body);
+  font-weight: 640;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.county-cell-l {
+  font: var(--type-micro);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Caveats stay attached to the figures they qualify. The precision share is
+   a standing project invariant and the jobs note prevents a
+   cost-per-job-saved reading the data cannot support — neither belongs
+   behind a disclosure. */
+.county-caveat {
+  font: var(--type-micro);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 12px 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: 9px;
+}
+
 /* ─── Mobile shell ───────────────────────────────────────────────────────
    Below 640px App renders MobileShell instead of the sidebar: a compact top
    bar plus one bottom sheet whose payload switches with the selection. */

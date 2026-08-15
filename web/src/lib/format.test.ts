@@ -22,6 +22,16 @@ describe("formatCompactAmount", () => {
   it("handles zero", () => {
     expect(formatCompactAmount(0)).toBe("$0");
   });
+
+  // County totals reach the billions — Wake County NC alone is $2.74B, and
+  // "$2737.66M" is unreadable as a headline figure.
+  it("abbreviates billions", () => {
+    expect(formatCompactAmount(2_737_662_324)).toBe("$2.74B");
+  });
+
+  it("trims trailing zeros in billions", () => {
+    expect(formatCompactAmount(3_000_000_000)).toBe("$3B");
+  });
 });
 
 describe("formatFullAmount", () => {

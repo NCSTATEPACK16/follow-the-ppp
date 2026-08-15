@@ -9,6 +9,7 @@ import { DetailCard } from "./components/DetailCard";
 import { Footer } from "./components/Footer";
 import { AboutPanel } from "./components/AboutPanel";
 import { HelpPanel } from "./components/HelpPanel";
+import { CountyStats } from "./components/CountyStats";
 import { MapLegend } from "./components/MapLegend";
 import { MobileShell } from "./components/MobileShell";
 import { useIsMobile } from "./lib/useIsMobile";
@@ -168,6 +169,17 @@ export default function App() {
     </>
   );
 
+  // Shared between shells: on mobile it fills the sheet, on desktop the same
+  // right-hand panel slot DetailCard uses. The desktop layout is unchanged —
+  // it gains a payload for an existing panel, not a new panel.
+  const countyCard = selectedCounty ? (
+    <CountyStats
+      fips={selectedCounty.fips}
+      name={selectedCounty.name}
+      state={selectedCounty.state}
+    />
+  ) : null;
+
   const detailCard = selectedLoan ? (
     <DetailCard
       loanNumber={selectedLoan.loanNumber}
@@ -209,7 +221,7 @@ export default function App() {
           search={searchControls}
           explore={exploreControls}
           detail={detailCard}
-          county={null}
+          county={countyCard}
         />
         {overlays}
       </div>
@@ -244,7 +256,11 @@ export default function App() {
         {exploreControls}
       </div>
 
-      {detailCard && <div className="app-panel app-panel-right">{detailCard}</div>}
+      {(countyCard || detailCard) && (
+        <div className="app-panel app-panel-right">
+          {countyCard ?? detailCard}
+        </div>
+      )}
 
       {overlays}
     </div>
