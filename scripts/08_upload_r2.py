@@ -27,6 +27,7 @@ R2_SECRET_ACCESS_KEY, R2_BUCKET. Requires boto3.
 import argparse
 import os
 import sys
+import time
 import urllib.request
 import urllib.error
 
@@ -89,18 +90,30 @@ USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36')
 
 
-def head(url):
-    """(status, content_length) for the public URL, without downloading it."""
+def head(url, attempts=3):
+    """
+    (status, content_length) for the public URL, without downloading it.
+
+    Retries transport errors. Sweeping 66 objects in a row draws the occasional
+    connection reset from r2.dev, and reporting that as a missing object would
+    send this script off to re-upload half a gigabyte that is already there.
+    An HTTP status, including 404, is an answer and is returned as-is.
+    """
     request = urllib.request.Request(url, method='HEAD',
                                      headers={'User-Agent': USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return response.status, int(response.headers.get('Content-Length', 0))
-    except urllib.error.HTTPError as err:
-        return err.code, 0
-    except urllib.error.URLError as err:
-        print(f"  ! {url}: {err.reason}")
-        return 0, 0
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.status, int(response.headers.get('Content-Length', 0))
+        except urllib.error.HTTPError as err:
+            return err.code, 0
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as err:
+            reason = getattr(err, 'reason', err)
+            if attempt == attempts - 1:
+                print(f"  ! {url}: {reason} (after {attempts} attempts)")
+                return 0, 0
+            time.sleep(1 + attempt)
+    return 0, 0
 
 
 def main():
