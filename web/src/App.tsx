@@ -16,7 +16,7 @@ import { parseDeepLink, writeDeepLink } from "./lib/url";
 import { usePrefersReducedMotion } from "./lib/useReducedMotion";
 import { filtersActive } from "./map/filters";
 import { DEFAULT_FILTERS } from "./types";
-import type { Filters, LoanRecord, LoanTileProps } from "./types";
+import type { CountyTileProps, Filters, LoanRecord, LoanTileProps } from "./types";
 import "./App.css";
 
 const LOANS_MIN_ZOOM = 9;
@@ -31,6 +31,7 @@ export default function App() {
   } | null>(
     initialLink.loan ? { loanNumber: initialLink.loan, preview: null } : null,
   );
+  const [selectedCounty, setSelectedCounty] = useState<CountyTileProps | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [lastSearchResults, setLastSearchResults] = useState<LoanRecord[]>([]);
@@ -89,7 +90,17 @@ export default function App() {
 
   const handleTileClick = useCallback((props: LoanTileProps) => {
     setSelectedLoan({ loanNumber: props.id, preview: null });
+    // A loan and a county never occupy the panel at once.
+    setSelectedCounty(null);
     writeDeepLink({ loan: props.id, ...viewRef.current });
+  }, []);
+
+  const handleCountyClick = useCallback((props: CountyTileProps) => {
+    // Tapping the selected county again clears it, so a stray tap while
+    // comparing counties is one tap to undo rather than a hunt for a close
+    // control.
+    setSelectedCounty((current) => (current?.fips === props.fips ? null : props));
+    setSelectedLoan(null);
   }, []);
 
   const handleCloseDetail = useCallback(() => {
@@ -122,7 +133,9 @@ export default function App() {
         topLoans={topLoans}
         initialView={initialLink}
         reducedMotion={reducedMotion}
+        selectedFips={selectedCounty?.fips ?? null}
         onLoanClick={handleTileClick}
+        onCountyClick={handleCountyClick}
         onViewChange={handleViewChange}
         onMapReady={handleMapReady}
       />

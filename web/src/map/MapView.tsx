@@ -6,7 +6,7 @@ import { buildMapStyle, BASEMAP_STYLE_URL } from "./style";
 import { buildLoansFilter, filtersActive } from "./filters";
 import { DEFAULT_VIEW } from "../lib/config";
 import type { DeepLinkState } from "../lib/url";
-import type { Filters, LoanRecord, LoanTileProps } from "../types";
+import type { CountyTileProps, Filters, LoanRecord, LoanTileProps } from "../types";
 
 ensurePmtilesProtocol();
 
@@ -23,12 +23,23 @@ function topLoansToGeoJson(loans: LoanRecord[]): GeoJSON.FeatureCollection {
   };
 }
 
+/** Pins sized for a fingertip rather than a cursor. Read once — a device does
+ *  not switch pointer types mid-session in any way that warrants a restyle. */
+const COARSE_POINTER =
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(pointer: coarse)").matches === true;
+
+/** Filter value for the county selection layers when nothing is selected. */
+const NO_SELECTION = "__none__";
+
 interface MapViewProps {
   filters: Filters;
   topLoans: LoanRecord[];
   initialView: DeepLinkState;
   reducedMotion: boolean;
+  selectedFips: string | null;
   onLoanClick: (props: LoanTileProps) => void;
+  onCountyClick: (props: CountyTileProps) => void;
   onViewChange: (v: { zoom: number; lat: number; lng: number }) => void;
   onMapReady: (map: MlMap) => void;
 }
@@ -38,7 +49,9 @@ export function MapView({
   topLoans,
   initialView,
   reducedMotion,
+  selectedFips,
   onLoanClick,
+  onCountyClick,
   onViewChange,
   onMapReady,
 }: MapViewProps) {
@@ -50,11 +63,13 @@ export function MapView({
   // always call the latest callback instead of closing over the props from
   // the render that constructed the map.
   const onLoanClickRef = useRef(onLoanClick);
+  const onCountyClickRef = useRef(onCountyClick);
   const onViewChangeRef = useRef(onViewChange);
   const onMapReadyRef = useRef(onMapReady);
   const topLoansRef = useRef(topLoans);
   useEffect(() => {
     onLoanClickRef.current = onLoanClick;
+    onCountyClickRef.current = onCountyClick;
     onViewChangeRef.current = onViewChange;
     onMapReadyRef.current = onMapReady;
     topLoansRef.current = topLoans;
@@ -78,7 +93,7 @@ export function MapView({
 
         const map = new maplibregl.Map({
           container: containerRef.current,
-          style: buildMapStyle(basemap),
+          style: buildMapStyle(basemap, { coarsePointer: COARSE_POINTER }),
           center: [initialView.lng, initialView.lat],
           zoom: animateIn ? initialView.zoom - 1.5 : initialView.zoom,
         });
@@ -91,14 +106,29 @@ export function MapView({
           onViewChangeRef.current({ zoom: map.getZoom(), lat: c.lat, lng: c.lng });
         });
 
-        map.on("click", "loans-circle", (e) => {
+        // Taps land on loans-hit, the padded transparent layer above the
+        // drawn pins — the smallest pin is ~2px against a ~44px fingertip.
+        map.on("click", "loans-hit", (e) => {
           const feature = e.features?.[0];
           if (feature) onLoanClickRef.current(feature.properties as LoanTileProps);
         });
-        map.on("mouseenter", "loans-circle", () => {
+        map.on("mouseenter", "loans-hit", () => {
           map.getCanvas().style.cursor = "pointer";
         });
-        map.on("mouseleave", "loans-circle", () => {
+        map.on("mouseleave", "loans-hit", () => {
+          map.getCanvas().style.cursor = "";
+        });
+
+        // County taps are a zoomed-out gesture: counties-fill stops at
+        // COUNTY_MAX_ZOOM, where ZIP dots and then pins take over.
+        map.on("click", "counties-fill", (e) => {
+          const feature = e.features?.[0];
+          if (feature) onCountyClickRef.current(feature.properties as CountyTileProps);
+        });
+        map.on("mouseenter", "counties-fill", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "counties-fill", () => {
           map.getCanvas().style.cursor = "";
         });
 
@@ -118,36 +148,16 @@ export function MapView({
           map.getCanvas().style.cursor = "";
         });
 
-        const addTopLoansLayer = () => {
-          map.addSource("top-loans", {
-            type: "geojson",
-            data: topLoansToGeoJson(topLoansRef.current),
-          });
-          map.addLayer({
-            id: "top-loans-circle",
-            type: "circle",
-            source: "top-loans",
-            paint: {
-              // Emphasis via size + ring, not a third hue: gold #f0b400
-              // failed the lightness band (L 0.803) and sat at 1.79:1
-              // contrast on the light basemap. Size and ring compose with
-              // the status color instead of overriding it, keeping the map
-              // at two hues. See docs/design-spec.md §3.5.
-              "circle-radius": 11,
-              "circle-color": [
-                "case",
-                [">", ["get", "f"], 0],
-                "#2a78d6",
-                "#eb6834",
-              ],
-              "circle-opacity": 0.9,
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#fcfcfb",
-            },
-          });
+        // The top-loans source and its two layers live in buildMapStyle now;
+        // only the data arrives late, once top_loans.json resolves.
+        const seedTopLoans = () => {
+          const source = map.getSource("top-loans") as
+            | maplibregl.GeoJSONSource
+            | undefined;
+          source?.setData(topLoansToGeoJson(topLoansRef.current));
         };
-        if (map.isStyleLoaded()) addTopLoansLayer();
-        else map.once("load", addTopLoansLayer);
+        if (map.isStyleLoaded()) seedTopLoans();
+        else map.once("load", seedTopLoans);
 
         if (animateIn) {
           map.once("load", () => {
@@ -177,17 +187,41 @@ export function MapView({
     const active = filtersActive(filters);
 
     const apply = () => {
-      map.setFilter("loans-circle", buildLoansFilter(filters) as never);
+      const loansFilter = buildLoansFilter(filters) as never;
+      map.setFilter("loans-circle", loansFilter);
+      // The hit layer must filter identically, or a filtered-out pin would
+      // still be tappable through an invisible target.
+      map.setFilter("loans-hit", loansFilter);
       // counties-fill and zips-circle show pre-computed aggregates baked in
       // at tile-build time — they can't be re-filtered client-side. Dim them
       // when a filter is active instead of silently ignoring it, so a
       // zoomed-out view doesn't look like the filter did nothing.
-      map.setPaintProperty("counties-fill", "fill-opacity", active ? 0.12 : 0.75);
+      map.setPaintProperty("counties-fill", "fill-opacity", active ? 0.12 : 0.62);
       map.setPaintProperty("zips-circle", "circle-opacity", active ? 0.1 : 0.6);
+      // Dim the selection ring alongside its fill, or a highlighted county
+      // floats over a dimmed map looking like the filter missed it.
+      map.setPaintProperty("counties-selected", "line-opacity", active ? 0.25 : 1);
+      map.setPaintProperty(
+        "counties-selected-halo",
+        "line-opacity",
+        active ? 0.2 : 0.9,
+      );
     };
     if (map.isStyleLoaded()) apply();
     else map.once("load", apply);
   }, [filters]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const filter = ["==", ["get", "fips"], selectedFips ?? NO_SELECTION];
+      map.setFilter("counties-selected", filter as never);
+      map.setFilter("counties-selected-halo", filter as never);
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once("load", apply);
+  }, [selectedFips]);
 
   useEffect(() => {
     const map = mapRef.current;
