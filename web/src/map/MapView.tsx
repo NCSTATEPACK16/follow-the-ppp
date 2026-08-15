@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import maplibregl, { Map as MlMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { ensurePmtilesProtocol } from "../lib/pmtilesProtocol";
-import { buildMapStyle, BASEMAP_STYLE_URL } from "./style";
+import { buildMapStyle, basemapUrl } from "./style";
 import { buildLoansFilter, filtersActive } from "./filters";
 import { DEFAULT_VIEW } from "../lib/config";
 import type { DeepLinkState } from "../lib/url";
@@ -40,9 +40,53 @@ const COARSE_POINTER =
 /** Filter value for the county selection layers when nothing is selected. */
 const NO_SELECTION = "__none__";
 
+/** Runs `apply` now if the style is ready, otherwise on the next style load. */
+function whenStyled(map: MlMap, apply: () => void): void {
+  if (map.isStyleLoaded()) apply();
+  else map.once("load", apply);
+}
+
+/**
+ * Pushes the current filter state onto the map's layers.
+ *
+ * Split out of its effect because a theme switch replaces every layer, and
+ * the new ones have to be told the same things the old ones knew.
+ */
+function applyFilters(map: MlMap, filters: Filters): void {
+  const active = filtersActive(filters);
+  const loansFilter = buildLoansFilter(filters) as never;
+  map.setFilter("loans-circle", loansFilter);
+  // The hit layer must filter identically, or a filtered-out pin would
+  // still be tappable through an invisible target.
+  map.setFilter("loans-hit", loansFilter);
+  // counties-fill and zips-circle show pre-computed aggregates baked in
+  // at tile-build time — they can't be re-filtered client-side. Dim them
+  // when a filter is active instead of silently ignoring it, so a
+  // zoomed-out view doesn't look like the filter did nothing.
+  map.setPaintProperty("counties-fill", "fill-opacity", active ? 0.12 : 0.62);
+  map.setPaintProperty("zips-circle", "circle-opacity", active ? 0.1 : 0.6);
+  // Dim the selection ring alongside its fill, or a highlighted county
+  // floats over a dimmed map looking like the filter missed it.
+  map.setPaintProperty("counties-selected", "line-opacity", active ? 0.25 : 1);
+  map.setPaintProperty("counties-selected-halo", "line-opacity", active ? 0.2 : 0.9);
+}
+
+function applySelection(map: MlMap, selectedFips: string | null): void {
+  const filter = ["==", ["get", "fips"], selectedFips ?? NO_SELECTION];
+  map.setFilter("counties-selected", filter as never);
+  map.setFilter("counties-selected-halo", filter as never);
+}
+
+function applyTopLoans(map: MlMap, topLoans: LoanRecord[]): void {
+  const source = map.getSource("top-loans") as maplibregl.GeoJSONSource | undefined;
+  source?.setData(topLoansToGeoJson(topLoans));
+}
+
 interface MapViewProps {
   filters: Filters;
   topLoans: LoanRecord[];
+  /** Paint the dark basemap. Swapping this restyles the live map in place. */
+  dark: boolean;
   initialView: DeepLinkState;
   reducedMotion: boolean;
   selectedFips: string | null;
@@ -55,6 +99,7 @@ interface MapViewProps {
 export function MapView({
   filters,
   topLoans,
+  dark,
   initialView,
   reducedMotion,
   selectedFips,
@@ -75,12 +120,19 @@ export function MapView({
   const onViewChangeRef = useRef(onViewChange);
   const onMapReadyRef = useRef(onMapReady);
   const topLoansRef = useRef(topLoans);
+  // The theme effect below rebuilds every layer, so it also has to restore the
+  // filter and selection state the replaced layers were carrying.
+  const filtersRef = useRef(filters);
+  const selectedFipsRef = useRef(selectedFips);
+  const darkRef = useRef(dark);
   useEffect(() => {
     onLoanClickRef.current = onLoanClick;
     onCountyClickRef.current = onCountyClick;
     onViewChangeRef.current = onViewChange;
     onMapReadyRef.current = onMapReady;
     topLoansRef.current = topLoans;
+    filtersRef.current = filters;
+    selectedFipsRef.current = selectedFips;
   });
 
   useEffect(() => {
@@ -88,7 +140,7 @@ export function MapView({
 
     let cancelled = false;
 
-    fetch(BASEMAP_STYLE_URL)
+    fetch(basemapUrl(darkRef.current))
       .then((r) => r.json())
       .then((basemap: StyleSpecification) => {
         if (cancelled || !containerRef.current) return;
@@ -101,7 +153,10 @@ export function MapView({
 
         const map = new maplibregl.Map({
           container: containerRef.current,
-          style: buildMapStyle(basemap, { coarsePointer: COARSE_POINTER }),
+          style: buildMapStyle(basemap, {
+            coarsePointer: COARSE_POINTER,
+            dark: darkRef.current,
+          }),
           center: [initialView.lng, initialView.lat],
           zoom: animateIn ? initialView.zoom - 1.5 : initialView.zoom,
         });
@@ -192,55 +247,69 @@ export function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const active = filtersActive(filters);
-
-    const apply = () => {
-      const loansFilter = buildLoansFilter(filters) as never;
-      map.setFilter("loans-circle", loansFilter);
-      // The hit layer must filter identically, or a filtered-out pin would
-      // still be tappable through an invisible target.
-      map.setFilter("loans-hit", loansFilter);
-      // counties-fill and zips-circle show pre-computed aggregates baked in
-      // at tile-build time — they can't be re-filtered client-side. Dim them
-      // when a filter is active instead of silently ignoring it, so a
-      // zoomed-out view doesn't look like the filter did nothing.
-      map.setPaintProperty("counties-fill", "fill-opacity", active ? 0.12 : 0.62);
-      map.setPaintProperty("zips-circle", "circle-opacity", active ? 0.1 : 0.6);
-      // Dim the selection ring alongside its fill, or a highlighted county
-      // floats over a dimmed map looking like the filter missed it.
-      map.setPaintProperty("counties-selected", "line-opacity", active ? 0.25 : 1);
-      map.setPaintProperty(
-        "counties-selected-halo",
-        "line-opacity",
-        active ? 0.2 : 0.9,
-      );
-    };
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
+    whenStyled(map, () => applyFilters(map, filters));
   }, [filters]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const apply = () => {
-      const filter = ["==", ["get", "fips"], selectedFips ?? NO_SELECTION];
-      map.setFilter("counties-selected", filter as never);
-      map.setFilter("counties-selected-halo", filter as never);
-    };
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
+    whenStyled(map, () => applySelection(map, selectedFips));
   }, [selectedFips]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const apply = () => {
-      const source = map.getSource("top-loans") as maplibregl.GeoJSONSource | undefined;
-      source?.setData(topLoansToGeoJson(topLoans));
-    };
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
+    whenStyled(map, () => applyTopLoans(map, topLoans));
   }, [topLoans]);
+
+  // Theme switch. The pin and county colours are chosen against the basemap
+  // they sit on, so the two change together or neither does — which means a
+  // full setStyle rather than a handful of setPaintProperty calls.
+  //
+  // setStyle replaces every source and layer, so the camera survives but the
+  // filter, the county selection and the top-loans GeoJSON do not: they are
+  // pushed back on once the new style has loaded. The effects above are keyed
+  // on their own props and will not re-run for a theme change.
+  useEffect(() => {
+    if (dark === darkRef.current) return;
+    darkRef.current = dark;
+    const map = mapRef.current;
+    if (!map) return;
+
+    let cancelled = false;
+    fetch(basemapUrl(dark))
+      .then((r) => r.json())
+      .then((basemap: StyleSpecification) => {
+        if (cancelled || mapRef.current !== map) return;
+        map.setStyle(
+          buildMapStyle(basemap, { coarsePointer: COARSE_POINTER, dark }),
+          { diff: false },
+        );
+        // `on`, not `once`: styledata fires on intermediate states too, and
+        // the first one can arrive before the data layers exist. Keep
+        // listening until they do, then unsubscribe.
+        const restore = () => {
+          if (cancelled || mapRef.current !== map) {
+            map.off("styledata", restore);
+            return;
+          }
+          if (!map.getLayer("loans-circle")) return;
+          map.off("styledata", restore);
+          applyFilters(map, filtersRef.current);
+          applySelection(map, selectedFipsRef.current);
+          applyTopLoans(map, topLoansRef.current);
+        };
+        map.on("styledata", restore);
+      })
+      .catch(() => {
+        // A basemap that won't load is not worth blanking the map for: the
+        // user keeps the theme they could already see.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dark]);
 
   return <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />;
 }

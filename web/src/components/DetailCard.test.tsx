@@ -72,6 +72,24 @@ describe("DetailCard", () => {
     expect(screen.getByText("CAROLINA BREWERY LLC")).toBeTruthy();
   });
 
+  it("names the fields still in flight instead of showing a bare ellipsis", async () => {
+    // On iOS Safari the DuckDB boot plus range requests take seconds. "…" in
+    // the lender row read as "this loan has no lender".
+    mocked.mockReturnValue(new Promise(() => {}));
+    render(<DetailCard loanNumber={TILE.id} tile={TILE} onClose={() => {}} />);
+
+    expect(screen.getAllByText("Loading…").length).toBeGreaterThan(0);
+    expect(screen.queryByText("…")).toBeNull();
+  });
+
+  it("says a field is unavailable, not loading, once the query has failed", async () => {
+    mocked.mockRejectedValue(new Error("network"));
+    render(<DetailCard loanNumber={TILE.id} tile={TILE} onClose={() => {}} />);
+
+    expect(await screen.findAllByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("Loading…")).toBeNull();
+  });
+
   it("falls back to a loading message with no tile to paint from", () => {
     mocked.mockReturnValue(new Promise(() => {}));
     render(<DetailCard loanNumber={TILE.id} onClose={() => {}} />);

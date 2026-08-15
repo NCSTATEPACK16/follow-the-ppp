@@ -22,8 +22,20 @@ interface DetailCardProps {
 /** Tile amounts are integer cents (see scripts/05_tiles.py build_loans). */
 const CENTS = 100;
 
-/** Unknown-until-loaded, rather than a claim the field is empty. */
-const PENDING = "…";
+/**
+ * What a field that the tile cannot carry says before the record lands.
+ *
+ * A bare "…" was indistinguishable from a truncated value, and on iOS Safari
+ * the DuckDB boot plus range requests can take several seconds — long enough
+ * that the ellipsis read as "this loan has no lender". Naming the state says
+ * the value is coming, and says so in the field's own place instead of
+ * replacing the whole card with a spinner.
+ */
+function pendingLabel(loading: boolean, failed: boolean): string {
+  if (loading) return "Loading…";
+  if (failed) return "Unavailable";
+  return "Unknown";
+}
 
 export function DetailCard({ loanNumber, preview, tile, onClose }: DetailCardProps) {
   const [loan, setLoan] = useState<LoanRecord | null>(preview ?? null);
@@ -66,6 +78,11 @@ export function DetailCard({ loanNumber, preview, tile, onClose }: DetailCardPro
 
   const havePartial = name !== null && approved !== null;
 
+  // One string for every field the tile could not carry, so they all say the
+  // same thing at the same time rather than a row of mixed placeholders.
+  const pending = pendingLabel(loading, failed);
+  const pendingClass = loading ? "detail-card-pending" : undefined;
+
   return (
     <div className="detail-card">
       <button type="button" className="detail-card-close" onClick={onClose} aria-label="Close">
@@ -80,8 +97,8 @@ export function DetailCard({ loanNumber, preview, tile, onClose }: DetailCardPro
       {havePartial && (
         <>
           <h2 className="detail-card-name">{name}</h2>
-          <p className="detail-card-place tnum">
-            {loan ? `${loan.city}, ${loan.state} · ${loan.zip}` : PENDING}
+          <p className={`detail-card-place tnum ${pendingClass ?? ""}`.trim()}>
+            {loan ? `${loan.city}, ${loan.state} · ${loan.zip}` : pending}
           </p>
 
           <p
@@ -101,16 +118,22 @@ export function DetailCard({ loanNumber, preview, tile, onClose }: DetailCardPro
               : "Not forgiven"}
           </p>
 
-          <dl className="detail-card-fields">
+          <dl className="detail-card-fields" aria-busy={loading && !loan}>
             <dt>Approved</dt>
-            <dd className="tnum">{loan ? (loan.date_approved ?? "Unknown") : PENDING}</dd>
+            <dd className={`tnum ${pendingClass ?? ""}`.trim()}>
+              {loan ? (loan.date_approved ?? "Unknown") : pending}
+            </dd>
             <dt>Lender</dt>
-            <dd>{loan ? (loan.originating_lender ?? "Unknown") : PENDING}</dd>
+            <dd className={pendingClass}>
+              {loan ? (loan.originating_lender ?? "Unknown") : pending}
+            </dd>
             <dt>Business type</dt>
-            <dd>{loan ? (loan.business_type ?? "Unknown") : PENDING}</dd>
+            <dd className={pendingClass}>
+              {loan ? (loan.business_type ?? "Unknown") : pending}
+            </dd>
             <dt>Jobs reported</dt>
-            <dd className="tnum">
-              {loan ? (loan.jobs_reported ?? "Not reported") : PENDING}
+            <dd className={`tnum ${pendingClass ?? ""}`.trim()}>
+              {loan ? (loan.jobs_reported ?? "Not reported") : pending}
             </dd>
             <dt>Status</dt>
             <dd>{status ?? "Unknown"}</dd>

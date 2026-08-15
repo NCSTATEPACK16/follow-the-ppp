@@ -17,6 +17,20 @@
   --text-muted: #898781;
   --border: rgba(11, 11, 11, 0.1);
 
+  /* Chrome that used to be hardcoded, so both themes can move it together. */
+  --control-bg: #eef2f7;
+  --control-border: #ccd6e2;
+  --control-text: #3a4b61;
+  --notice-bg: #fff6e0;
+  --notice-border: #f0d888;
+  --notice-text: #7a5b00;
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
+  --footer-bg: rgba(20, 20, 20, 0.85);
+  --footer-text: #eee;
+  --footer-link: #9cc0f0;
+  --footer-border: #888;
+  --map-control-filter: none;
+
   /* Identity — validator-passed, docs/design-spec.md §3.2 */
   --accent: #2a78d6;
   --pin-forgiven: #2a78d6;
@@ -48,6 +62,56 @@
   --type-micro: 500 11px/1.4 "InterVar", system-ui, sans-serif;
 }
 
+/* Dark theme.
+   Only the tokens are redefined — every rule below reads through them, so
+   there is one palette per theme and no second set of layout rules to keep in
+   step. The attribute is set by lib/useTheme.ts; the map's own basemap swaps
+   alongside it in map/style.ts.
+
+   The pin hues do not change: they are the validator-passed identity pair
+   (docs/design-spec.md §3.2) and the legend, the pins and the status pill all
+   have to keep meaning the same thing in both themes. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Straight from the dark column of docs/design-spec.md §3.7 — the steps
+     were chosen and validated there, so they are not re-derived here. Note
+     the pins do move: #2a78d6/#eb6834 were picked against a light basemap
+     and the spec gives them lifted counterparts for a dark one. */
+  --surface-1: #1a1a19;
+  --surface-2: #252523;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5;
+  --pin-forgiven: #3987e5;
+  --pin-unforgiven: #d95926;
+
+  /* Chrome derived from the surfaces above, same warm-neutral family. */
+  --control-bg: #252523;
+  --control-border: #3b3b37;
+  --control-text: #c3c2b7;
+  --notice-bg: #2b2412;
+  --notice-border: #574a21;
+  --notice-text: #e8cd86;
+  --overlay-scrim: rgba(0, 0, 0, 0.66);
+  --footer-bg: rgba(10, 10, 9, 0.88);
+  --footer-text: #e6e5df;
+  --footer-link: #85b7ee;
+  --footer-border: #55534e;
+  /* MapLibre's zoom/compass controls ship a fixed white chrome we do not
+     own; inverting the group is the only way to retint it. */
+  --map-control-filter: invert(0.92) hue-rotate(180deg);
+
+  /* On a dark surface a cast shadow is nearly invisible, so the hairline
+     does the elevation work with a deeper shadow beneath it. */
+  --elev-panel:
+    0 0 0 1px var(--border),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -60,6 +124,9 @@ body,
   font: var(--type-body);
   font-family: "InterVar", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-primary);
+  /* The map canvas covers this, but not before it has loaded — without it the
+     dark theme opens on a white flash. */
+  background: var(--surface-1);
 }
 
 /* Loan numbers, dates, and any column of figures. Slashed zero matters:
@@ -132,9 +199,9 @@ body,
 
 .filter-zoom-notice {
   font-size: 12px;
-  color: #7a5b00;
-  background: #fff6e0;
-  border: 1px solid #f0d888;
+  color: var(--notice-text);
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
   border-radius: 4px;
   padding: 6px 8px;
   margin: 0 0 8px;
@@ -157,7 +224,7 @@ body,
 
 .search-status {
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted);
   padding: 4px 0;
 }
 
@@ -236,19 +303,19 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  background: #eef2f7;
-  border: 1px solid #ccd6e2;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
   border-radius: 4px;
   padding: 6px 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #3a4b61;
+  color: var(--control-text);
   cursor: pointer;
   text-align: left;
 }
 
 .state-filter-body {
-  border: 1px solid #ccd6e2;
+  border: 1px solid var(--control-border);
   border-top: none;
   border-radius: 0 0 4px 4px;
   padding: 8px;
@@ -256,7 +323,7 @@ body,
 
 .state-filter-hint {
   font-size: 11px;
-  color: #666;
+  color: var(--text-muted);
   margin: 0 0 6px;
 }
 
@@ -334,7 +401,7 @@ body,
   margin: 0 0 4px;
   font-size: 13px;
   text-transform: uppercase;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .filter-panel label {
@@ -373,8 +440,8 @@ body,
   left: 0;
   right: 0;
   z-index: 10;
-  background: rgba(20, 20, 20, 0.85);
-  color: #eee;
+  background: var(--footer-bg);
+  color: var(--footer-text);
   font-size: 11px;
   padding: 6px 12px;
   display: flex;
@@ -384,14 +451,14 @@ body,
 }
 
 .app-footer a {
-  color: #9cc0f0;
+  color: var(--footer-link);
 }
 
 .app-footer button {
   margin-left: auto;
   background: none;
-  border: 1px solid #888;
-  color: #eee;
+  border: 1px solid var(--footer-border);
+  color: var(--footer-text);
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
@@ -400,7 +467,7 @@ body,
 .about-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-scrim);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -411,7 +478,7 @@ body,
   position: relative;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--surface-1);
   max-width: 640px;
   max-height: 80vh;
   border-radius: 8px;
@@ -624,7 +691,7 @@ body,
    keeps the 44px tap target the rest of the phone shell uses. */
 .county-retry {
   font: inherit;
-  color: var(--accent-forgiven, #2a78d6);
+  color: var(--accent);
   background: none;
   border: 0;
   padding: 0.5rem 0;
@@ -953,4 +1020,56 @@ body,
   font: var(--type-micro);
   color: var(--text-muted);
   margin: 2px 0 0;
+}
+
+/* ─── Header actions & theme ─────────────────────────────────────────────── */
+
+/* The theme toggle sits beside the gear in both shells, so they share a row
+   and a hit size rather than each being placed by hand. */
+.app-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.theme-toggle {
+  font-size: 15px;
+}
+
+/* MapLibre's own controls are a fixed white chrome that would glare over the
+   dark basemap. See --map-control-filter; it is `none` in the light theme. */
+.maplibregl-ctrl-group {
+  filter: var(--map-control-filter);
+}
+
+/* ─── Pending fields ─────────────────────────────────────────────────────
+   The fields the map tile cannot carry (lender, business type, jobs, date)
+   arrive from a DuckDB-WASM query against a remote Parquet file. On iOS
+   Safari that can take seconds. They say "Loading…" while it runs — muted,
+   so the card's real values still read first — rather than an ellipsis that
+   looked like missing data. */
+
+.detail-card-pending {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* A slow pulse says "still working" without a spinner competing with the
+   figures. Held above 1.5s so it never reads as a flicker; the global
+   reduced-motion rule above stops it outright. */
+@media (prefers-reduced-motion: no-preference) {
+  .detail-card-pending {
+    animation: pending-pulse 1.8s var(--ease) infinite;
+  }
+}
+
+@keyframes pending-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }

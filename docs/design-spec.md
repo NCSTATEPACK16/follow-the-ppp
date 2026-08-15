@@ -465,20 +465,30 @@ results and link previews.
 
 ---
 
-## 8. Dark mode
+## 8. Dark mode — shipped
 
 Worth it here: a light-on-dark map is the convention for data exploration, and the
 whole palette above already has validated dark steps.
 
 - Basemap swaps to **CARTO Dark Matter** (same provider, same no-key terms as the
-  current Positron).
-- Follow `prefers-color-scheme` by default, with an explicit toggle in the footer
-  that wins both directions, persisted to `localStorage`.
+  current Positron). `map/style.ts:basemapUrl`.
+- Follow `prefers-color-scheme` by default; an explicit toggle wins both
+  directions and persists to `localStorage` (`lib/useTheme.ts`). Until the
+  visitor chooses, an OS change still takes effect live.
+- The toggle sits **beside the help gear in the header**, not in the footer as
+  originally specced: the footer is the attribution strip, which on a phone is
+  already compacted to three wrapped lines above the sheet, and a control there
+  is both cramped and easy to miss.
 - Pins and choropleth take the dark column from §3.7 — **selected steps, not an
-  automatic filter-invert**. Re-run the validator against `#1a1a19`.
-
-**Deferrable.** If scope needs cutting, ship §2–§7 first; the token structure means
-dark mode is later a matter of filling in one `@media` block, not a rewrite.
+  automatic filter-invert**. The pin ring follows `--surface-1` in each theme, so
+  a white ring never turns a dense cluster into a bright mesh on the dark ground.
+- The county ramp has its own dark steps running dark→bright, so "brighter = more
+  dollars" stays true rather than being inverted along with the surfaces.
+- Implementation shape: theme changes trigger a full `map.setStyle`, which
+  discards the layers' filter and selection state — `MapView` re-applies filters,
+  county selection and the top-loans GeoJSON once the new style loads.
+- An inline pre-paint script in `index.html` stamps `data-theme` before React
+  mounts, so a dark-preferring visitor never sees a white first frame.
 
 ---
 

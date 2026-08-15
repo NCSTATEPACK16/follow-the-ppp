@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StyleSpecification } from "maplibre-gl";
-import { buildMapStyle, COUNTY_MAX_ZOOM } from "./style";
+import { basemapUrl, buildMapStyle, COUNTY_MAX_ZOOM } from "./style";
 
 const BASEMAP = {
   version: 8,
@@ -60,6 +60,49 @@ describe("loan pins", () => {
     // rides on the pin's own status colour.
     const paint = layer(buildMapStyle(BASEMAP), "loans-circle").paint;
     expect(JSON.stringify(paint["circle-stroke-color"])).toContain("zip_centroid");
+  });
+});
+
+describe("dark theme", () => {
+  it("serves a different basemap per theme", () => {
+    expect(basemapUrl(true)).not.toBe(basemapUrl(false));
+    expect(basemapUrl(true)).toContain("dark-matter");
+  });
+
+  it("keeps brighter meaning more dollars on the dark ramp too", () => {
+    // Inverting the light ramp would put the palest fill on the *smallest*
+    // county totals over a dark ground, which reads as more, not less.
+    const stops = layer(buildMapStyle(BASEMAP, { dark: true }), "counties-fill").paint[
+      "fill-color"
+    ] as unknown[];
+    const colors = stops.slice(4).filter((_, i) => i % 2 === 0) as string[];
+    const luminance = (hex: string) =>
+      parseInt(hex.slice(1, 3), 16) + parseInt(hex.slice(3, 5), 16) + parseInt(hex.slice(5, 7), 16);
+    colors.forEach((c, i) => {
+      if (i > 0) expect(luminance(c)).toBeGreaterThan(luminance(colors[i - 1]));
+    });
+  });
+
+  it("takes the spec's dark pin steps rather than filtering the light ones", () => {
+    // docs/design-spec.md §3.7. Blue/orange stays the forgiveness encoding in
+    // both themes (§3.2), but the steps that hold against a near-black
+    // basemap are not the ones picked against a near-white one.
+    const color = JSON.stringify(
+      layer(buildMapStyle(BASEMAP, { dark: true }), "loans-circle").paint["circle-color"],
+    );
+    expect(color).toContain("#3987e5");
+    expect(color).toContain("#d95926");
+    expect(color).not.toContain("#eb6834");
+  });
+
+  it("rings pins in the ground colour, not a fixed white", () => {
+    const stroke = (dark: boolean) =>
+      JSON.stringify(
+        layer(buildMapStyle(BASEMAP, { dark }), "top-loans-circle").paint[
+          "circle-stroke-color"
+        ],
+      );
+    expect(stroke(true)).not.toBe(stroke(false));
   });
 });
 

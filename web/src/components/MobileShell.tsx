@@ -1,8 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BottomSheet } from "./BottomSheet";
+import { ThemeToggle } from "./ThemeToggle";
+import type { Theme } from "../lib/useTheme";
 
 interface MobileShellProps {
   onHelpClick: () => void;
+  theme?: Theme;
+  onThemeToggle?: () => void;
   /** Search field, rendered into the top bar. */
   search: ReactNode;
   /** Default sheet content: filters, top loans, export. */
@@ -11,6 +15,15 @@ interface MobileShellProps {
   detail: ReactNode;
   /** A selected county, or null. */
   county: ReactNode;
+  /**
+   * Identity of the current selection ("loan:123", "county:37001", null).
+   *
+   * `detail` and `county` are freshly-constructed elements on every render, so
+   * they cannot say whether the selection *changed*. Without this the sheet
+   * re-snapped to its default on every unrelated re-render — a map pan while
+   * the sheet was open dragged it shut under the reader's finger.
+   */
+  selectionId?: string | null;
   reducedMotion?: boolean;
 }
 
@@ -25,10 +38,13 @@ interface MobileShellProps {
  */
 export function MobileShell({
   onHelpClick,
+  theme = "light",
+  onThemeToggle,
   search,
   explore,
   detail,
   county,
+  selectionId = null,
   reducedMotion = false,
 }: MobileShellProps) {
   const selection = county ?? detail;
@@ -37,13 +53,24 @@ export function MobileShell({
   // default would cover them before the user has asked for anything.
   const [detent, setDetent] = useState(0);
 
-  // A new selection returns the sheet to peek: the user tapped something on
-  // the map, so the map is what they are looking at. Comparing counties one
-  // after another should never require re-collapsing the sheet each time.
+  // Where each kind of selection lands the sheet.
+  //
+  // A loan opens at half: the card is a dozen fields deep, and at peek the
+  // reader sees a name and has to drag before they can tell which of several
+  // overlapping pins they actually hit. Half shows the whole record and still
+  // leaves the map — and the tapped pin — visible above it.
+  //
+  // A county stays at peek. It is a browsing gesture: the headline total is
+  // the answer, and comparing counties one after another must not bury the
+  // map being compared.
   const selectionKey = county ? "county" : detail ? "detail" : "none";
   useEffect(() => {
-    if (selectionKey !== "none") setDetent(0);
-  }, [selectionKey, county, detail]);
+    if (selectionKey === "county") setDetent(0);
+    else if (selectionKey === "detail") setDetent(1);
+    // Keyed on the selection's identity, never on the elements: a re-render
+    // that carries the same selection must leave the sheet where the user
+    // last put it.
+  }, [selectionKey, selectionId]);
 
   const label = county
     ? "County statistics"
@@ -56,14 +83,17 @@ export function MobileShell({
       <div className="mobile-bar">
         <div className="mobile-bar-row">
           <h1 className="mobile-title">PPP Loan Map</h1>
-          <button
-            type="button"
-            className="gear-button"
-            onClick={onHelpClick}
-            aria-label="Help — how filters and search work"
-          >
-            ⚙
-          </button>
+          <div className="app-panel-actions">
+            {onThemeToggle && <ThemeToggle theme={theme} onToggle={onThemeToggle} />}
+            <button
+              type="button"
+              className="gear-button"
+              onClick={onHelpClick}
+              aria-label="Help — how filters and search work"
+            >
+              ⚙
+            </button>
+          </div>
         </div>
         {search}
       </div>

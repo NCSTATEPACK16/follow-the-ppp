@@ -12,7 +12,9 @@ import { HelpPanel } from "./components/HelpPanel";
 import { CountyStats } from "./components/CountyStats";
 import { MapLegend } from "./components/MapLegend";
 import { MobileShell } from "./components/MobileShell";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { useIsMobile } from "./lib/useIsMobile";
+import { useTheme } from "./lib/useTheme";
 import {
   getLoanByNumber,
   getRandomLoan,
@@ -53,6 +55,7 @@ export default function App() {
   const [searchStates, setSearchStates] = useState<string[]>([]);
   const reducedMotion = usePrefersReducedMotion();
   const isMobile = useIsMobile();
+  const { theme, toggle: toggleTheme } = useTheme();
 
   useEffect(() => {
     getTopLoans().then(setTopLoans);
@@ -215,9 +218,18 @@ export default function App() {
     />
   ) : null;
 
+  // Identity of what is selected, so the mobile sheet can tell a *new*
+  // selection from a re-render of the same one.
+  const selectionId = selectedCounty
+    ? `county:${selectedCounty.fips}`
+    : selectedLoan
+      ? `loan:${selectedLoan.loanNumber}`
+      : null;
+
   const map = (
     <MapView
       filters={filters}
+      dark={theme === "dark"}
       topLoans={topLoans}
       initialView={initialLink}
       reducedMotion={reducedMotion}
@@ -245,6 +257,9 @@ export default function App() {
         <MobileShell
           reducedMotion={reducedMotion}
           onHelpClick={() => setHelpOpen(true)}
+          theme={theme}
+          onThemeToggle={toggleTheme}
+          selectionId={selectionId}
           search={searchControls}
           explore={exploreControls}
           detail={detailCard}
@@ -269,15 +284,18 @@ export default function App() {
               11.4M loans · $787B approved · 2020–2021
             </p>
           </div>
-          <button
-            type="button"
-            className="gear-button"
-            onClick={() => setHelpOpen(true)}
-            aria-label="Help — how filters and search work"
-            title="Help — how filters and search work"
-          >
-            ⚙
-          </button>
+          <div className="app-panel-actions">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <button
+              type="button"
+              className="gear-button"
+              onClick={() => setHelpOpen(true)}
+              aria-label="Help — how filters and search work"
+              title="Help — how filters and search work"
+            >
+              ⚙
+            </button>
+          </div>
         </div>
         {searchControls}
         {exploreControls}

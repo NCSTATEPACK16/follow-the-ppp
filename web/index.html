@@ -20,6 +20,31 @@
       href="/fonts/Inter-roman-latin.var.woff2"
       crossorigin
     />
+    <!-- Tints the iOS Safari chrome to match the theme, so the address bar
+         above the map is not a white bar over a dark page. -->
+    <meta name="theme-color" content="#fcfcfb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1a1a19" media="(prefers-color-scheme: dark)" />
+    <!-- Runs before the first paint: React mounting a frame later would show
+         a white page to a visitor whose stored choice is dark. Kept inline
+         and tiny for that reason — see web/src/lib/useTheme.ts, which owns
+         the same storage key from then on. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("ppp-theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {
+          /* No storage (Safari private mode) — the CSS default is light. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
