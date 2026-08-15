@@ -29,4 +29,14 @@ function localDataMiddleware(): Plugin {
 
 export default defineConfig({
   plugins: [react(), localDataMiddleware()],
+  test: {
+    // Only the component and hook suites need a DOM; the rest (style
+    // expressions, formatters, the stats client) run fine without one, so
+    // jsdom is opted into per-file with `@vitest-environment jsdom`.
+    environment: "node",
+    // Required for @testing-library/react's automatic cleanup to register.
+    // Without it, renders accumulate across tests in a file and queries
+    // start matching elements left over from an earlier test.
+    globals: true,
+  },
 });

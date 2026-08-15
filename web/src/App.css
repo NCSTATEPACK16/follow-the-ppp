@@ -71,7 +71,9 @@ body,
 .app-shell {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  /* dvh, not vh: on iOS Safari 100vh is the height with the URL bar hidden,
+     so the bottom of the app sits permanently under the browser chrome. */
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -83,7 +85,7 @@ body,
   border-radius: var(--radius-panel);
   box-shadow: var(--elev-panel);
   padding: 14px 16px;
-  max-height: calc(100vh - 92px);
+  max-height: calc(100dvh - 92px);
   overflow-y: auto;
   /* Isolate panel reflow from the map canvas. */
   contain: layout paint;
@@ -600,17 +602,122 @@ body,
   border: 1.5px solid var(--text-secondary);
 }
 
+/* ─── Mobile shell ───────────────────────────────────────────────────────
+   Below 640px App renders MobileShell instead of the sidebar: a compact top
+   bar plus one bottom sheet whose payload switches with the selection. */
+
+.mobile-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px;
+  background: var(--surface-1);
+  box-shadow: var(--elev-panel);
+  /* No backdrop-filter: it recomputes the blur every frame over a
+     continuously-repainting WebGL canvas. See docs/design-spec.md §3.7. */
+}
+
+.mobile-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mobile-title {
+  font: var(--type-title);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  box-shadow: var(--elev-panel);
+  transition: height var(--motion-base) var(--ease);
+  contain: layout paint;
+}
+
+/* The whole handle is the touch target — 44px, not the 4px grip you see. */
+.sheet-handle {
+  flex: 0 0 auto;
+  height: 44px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sheet-handle:active {
+  cursor: grabbing;
+}
+
+.sheet-grip {
+  width: 34px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* At peek the sheet is a header strip; hiding the overflow keeps content
+   from bleeding past the rounded top edge mid-transition. */
+.sheet[data-detent="0"] .sheet-body {
+  overflow: hidden;
+}
+
 /* Below 640px the legend starts collapsed to the chip (see MapLegend.tsx).
    It is never display:none — the legend is the pin palette's required
-   secondary encoding and must stay reachable at every viewport. The footer
-   wraps to three lines at this width, so the chip has to clear it. */
+   secondary encoding and must stay reachable at every viewport. It now has
+   to clear the bottom sheet's peek height rather than the footer. */
 @media (max-width: 640px) {
+  /* --sheet-height is published by BottomSheet so both of these track the
+     sheet as it moves between detents instead of assuming its peek size. */
   .map-legend,
   .map-legend-chip {
-    bottom: 108px;
-    /* The sidebar owns the left edge at this width; sit over the map instead. */
+    /* Clear both the sheet and the attribution strip, which wraps to three
+       lines at 390px. */
+    bottom: calc(var(--sheet-height, 12dvh) + 88px);
+    /* The sheet owns the bottom edge; sit above it, against the right. */
     left: auto;
     right: 12px;
+    transition: bottom var(--motion-base) var(--ease);
+  }
+
+  /* The footer carries the Geocodio CC BY 4.0 attribution, which the licence
+     requires to be visible in the UI — so it is compacted to a single strip
+     above the sheet, never hidden. See CLAUDE.md invariants. */
+  .app-footer {
+    bottom: var(--sheet-height, 12dvh);
+    transition: bottom var(--motion-base) var(--ease);
+    gap: 8px;
+    padding: 5px 12px calc(env(safe-area-inset-bottom, 0px) / 2 + 5px);
+    font: var(--type-micro);
+    font-size: 10px;
+    line-height: 1.35;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 

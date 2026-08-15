@@ -10,6 +10,8 @@ import { Footer } from "./components/Footer";
 import { AboutPanel } from "./components/AboutPanel";
 import { HelpPanel } from "./components/HelpPanel";
 import { MapLegend } from "./components/MapLegend";
+import { MobileShell } from "./components/MobileShell";
+import { useIsMobile } from "./lib/useIsMobile";
 import { getLoanByNumber, getRandomLoan, getTopLoans } from "./lib/search";
 import { downloadKml } from "./lib/kml";
 import { parseDeepLink, writeDeepLink } from "./lib/url";
@@ -40,6 +42,7 @@ export default function App() {
   const [randomLoading, setRandomLoading] = useState(false);
   const [searchStates, setSearchStates] = useState<string[]>([]);
   const reducedMotion = usePrefersReducedMotion();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     getTopLoans().then(setTopLoans);
@@ -126,19 +129,96 @@ export default function App() {
     downloadKml(rows);
   }, [lastSearchResults, selectedLoan]);
 
+  // Shared leaves. The mobile tree is a separate *layout*, but it composes
+  // the same components, so the two shells can differ in arrangement and
+  // never in behaviour.
+  const searchControls = (
+    <>
+      <StateFilter selected={searchStates} onChange={setSearchStates} />
+      <SearchBox
+        states={searchStates}
+        onSelect={handleSearchSelect}
+        onResultsChange={setLastSearchResults}
+      />
+    </>
+  );
+
+  const exploreControls = (
+    <>
+      <button
+        type="button"
+        className="random-button"
+        onClick={handleRandomLoan}
+        disabled={randomLoading}
+      >
+        {randomLoading ? "Finding one…" : "🎲 Random loan"}
+      </button>
+      <TopLoansPanel loans={topLoans} onSelect={flyToAndSelect} />
+      <FilterPanel filters={filters} onChange={setFilters} />
+      {filtersActive(filters) && zoom < LOANS_MIN_ZOOM && (
+        <p className="filter-zoom-notice">
+          Filters only apply to individual loan pins. The shaded counties and
+          dots you're seeing at this zoom are unfiltered totals — zoom in (past
+          ~z{LOANS_MIN_ZOOM}) to see the filtered pins.
+        </p>
+      )}
+      <button type="button" onClick={handleExportKml}>
+        Export search results as KML
+      </button>
+    </>
+  );
+
+  const detailCard = selectedLoan ? (
+    <DetailCard
+      loanNumber={selectedLoan.loanNumber}
+      preview={selectedLoan.preview}
+      onClose={handleCloseDetail}
+    />
+  ) : null;
+
+  const map = (
+    <MapView
+      filters={filters}
+      topLoans={topLoans}
+      initialView={initialLink}
+      reducedMotion={reducedMotion}
+      selectedFips={selectedCounty?.fips ?? null}
+      onLoanClick={handleTileClick}
+      onCountyClick={handleCountyClick}
+      onViewChange={handleViewChange}
+      onMapReady={handleMapReady}
+    />
+  );
+
+  const overlays = (
+    <>
+      <MapLegend />
+      <Footer onAboutClick={() => setAboutOpen(true)} />
+      {aboutOpen && <AboutPanel onClose={() => setAboutOpen(false)} />}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="app-shell">
+        {map}
+        <MobileShell
+          reducedMotion={reducedMotion}
+          onHelpClick={() => setHelpOpen(true)}
+          search={searchControls}
+          explore={exploreControls}
+          detail={detailCard}
+          county={null}
+        />
+        {overlays}
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
-      <MapView
-        filters={filters}
-        topLoans={topLoans}
-        initialView={initialLink}
-        reducedMotion={reducedMotion}
-        selectedFips={selectedCounty?.fips ?? null}
-        onLoanClick={handleTileClick}
-        onCountyClick={handleCountyClick}
-        onViewChange={handleViewChange}
-        onMapReady={handleMapReady}
-      />
+      {map}
 
       <div className="app-panel app-panel-left">
         <div className="app-panel-header">
@@ -160,48 +240,13 @@ export default function App() {
             ⚙
           </button>
         </div>
-        <StateFilter selected={searchStates} onChange={setSearchStates} />
-        <SearchBox
-          states={searchStates}
-          onSelect={handleSearchSelect}
-          onResultsChange={setLastSearchResults}
-        />
-        <button
-          type="button"
-          className="random-button"
-          onClick={handleRandomLoan}
-          disabled={randomLoading}
-        >
-          {randomLoading ? "Finding one…" : "🎲 Random loan"}
-        </button>
-        <TopLoansPanel loans={topLoans} onSelect={flyToAndSelect} />
-        <FilterPanel filters={filters} onChange={setFilters} />
-        {filtersActive(filters) && zoom < LOANS_MIN_ZOOM && (
-          <p className="filter-zoom-notice">
-            Filters only apply to individual loan pins. The shaded counties and
-            dots you're seeing at this zoom are unfiltered totals — zoom in
-            (past ~z{LOANS_MIN_ZOOM}) to see the filtered pins.
-          </p>
-        )}
-        <button type="button" onClick={handleExportKml}>
-          Export search results as KML
-        </button>
+        {searchControls}
+        {exploreControls}
       </div>
 
-      {selectedLoan && (
-        <div className="app-panel app-panel-right">
-          <DetailCard
-            loanNumber={selectedLoan.loanNumber}
-            preview={selectedLoan.preview}
-            onClose={handleCloseDetail}
-          />
-        </div>
-      )}
+      {detailCard && <div className="app-panel app-panel-right">{detailCard}</div>}
 
-      <MapLegend />
-      <Footer onAboutClick={() => setAboutOpen(true)} />
-      {aboutOpen && <AboutPanel onClose={() => setAboutOpen(false)} />}
-      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+      {overlays}
     </div>
   );
 }
