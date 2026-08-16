@@ -77,5 +77,10 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Cloudflare Web Analytics: free, cookieless, no individual-visitor
+         tracking — see Cloudflare dashboard > Analytics > Web analytics.
+         Placed last so it never competes with the map's own asset fetches
+         on first load. -->
+    <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "2ca2b60c3f894850a61de1d17e8bb37d"}'></script>
   </body>
 </html>
