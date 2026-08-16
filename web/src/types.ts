@@ -52,6 +52,17 @@ export interface CountyStats {
   approx_pct: number | null;
 }
 
+/** One row in top_cities.json (scripts/07c_top_cities.py), top 10 by dollars approved. */
+export interface CityStats {
+  city: string;
+  state: string;
+  loan_count: number;
+  sum_approved: number;
+  sum_forgiven: number;
+  lat: number;
+  lng: number;
+}
+
 /** Properties baked into counties-240930-v1.pmtiles. */
 export interface CountyTileProps {
   fips: string;

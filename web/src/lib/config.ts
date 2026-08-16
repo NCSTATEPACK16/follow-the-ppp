@@ -52,6 +52,8 @@ export const TOP_LOANS_URL = `${DATA_BASE}/top_loans.json`;
 // Per-county aggregates for the county sheet (scripts/07_county_stats.py).
 // Fetched lazily on the first county tap, never on page load.
 export const COUNTY_STATS_URL = `${DATA_BASE}/county_stats.json`;
+// Top 10 cities by dollars approved, for the trophy panel (scripts/07c_top_cities.py).
+export const TOP_CITIES_URL = `${DATA_BASE}/top_cities.json`;
 
 // Continental US, zoomed out enough to see the whole country — tiles and
 // search are both national (see reports/05_tiles.md, config.yaml SCOPE).

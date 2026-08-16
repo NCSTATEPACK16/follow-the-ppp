@@ -30,8 +30,8 @@ only as the fallback in `lib/search.ts`. DuckDB-WASM is prewarmed on search-box
 cellular connection while the map was still drawing.
 
 ## Pipeline
-Run scripts/ in numeric order (07b runs between 07 and 08). Each is idempotent
-and writes to reports/. Never skip a stage's acceptance check.
+Run scripts/ in numeric order (07b, 07c run between 07 and 08). Each is
+idempotent and writes to reports/. Never skip a stage's acceptance check.
 
 ## Publishing (Stage 8)
 `python scripts/08_upload_r2.py` is the only way assets reach the bucket, and

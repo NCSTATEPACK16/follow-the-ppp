@@ -56,3 +56,18 @@ export async function getCountyStats(fips: string): Promise<CountyStats | null> 
 export async function getNationalCount(): Promise<number> {
   return Object.keys(await loadAll()).length;
 }
+
+/**
+ * The 10 counties with the most PPP dollars approved, for the trophy panel.
+ *
+ * No second fetch: `nat_rank` is already computed into every row of the same
+ * payload `getCountyStats` loads, so this reuses the cached promise and
+ * filters client-side rather than adding a new precomputed file.
+ */
+export async function getTopCounties(): Promise<(CountyStats & { fips: string })[]> {
+  const all = await loadAll();
+  return Object.entries(all)
+    .filter(([, stats]) => stats.nat_rank <= 10)
+    .map(([fips, stats]) => ({ ...stats, fips }))
+    .sort((a, b) => a.nat_rank - b.nat_rank);
+}

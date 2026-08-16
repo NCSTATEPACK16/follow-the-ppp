@@ -5,6 +5,7 @@ import { MobileShell } from "./MobileShell";
 
 const base = {
   onHelpClick: vi.fn(),
+  onTrophyClick: vi.fn(),
   search: <input aria-label="Search borrower name" />,
   explore: <p>Explore panel</p>,
   detail: null,

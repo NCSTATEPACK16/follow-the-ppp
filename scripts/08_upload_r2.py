@@ -65,6 +65,8 @@ MANIFEST = [
      'application/json', HOURLY),
     (f'{INTERIM}/county_stats.json', 'data/county_stats.json',
      'application/json', HOURLY),
+    (f'{INTERIM}/top_cities.json', 'data/top_cities.json',
+     'application/json', HOURLY),
 ]
 
 STATE_SHARD_DIR = f'{INTERIM}/states'

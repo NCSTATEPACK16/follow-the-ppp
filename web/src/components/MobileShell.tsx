@@ -5,6 +5,7 @@ import type { Theme } from "../lib/useTheme";
 
 interface MobileShellProps {
   onHelpClick: () => void;
+  onTrophyClick: () => void;
   theme?: Theme;
   onThemeToggle?: () => void;
   /** Search field, rendered into the top bar. */
@@ -38,6 +39,7 @@ interface MobileShellProps {
  */
 export function MobileShell({
   onHelpClick,
+  onTrophyClick,
   theme = "light",
   onThemeToggle,
   search,
@@ -85,6 +87,14 @@ export function MobileShell({
           <h1 className="mobile-title">PPP Loan Map</h1>
           <div className="app-panel-actions">
             {onThemeToggle && <ThemeToggle theme={theme} onToggle={onThemeToggle} />}
+            <button
+              type="button"
+              className="gear-button"
+              onClick={onTrophyClick}
+              aria-label="Cool stats — top counties, cities and loans"
+            >
+              🏆
+            </button>
             <button
               type="button"
               className="gear-button"

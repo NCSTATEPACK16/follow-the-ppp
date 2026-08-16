@@ -9,6 +9,7 @@ import { DetailCard } from "./components/DetailCard";
 import { Footer } from "./components/Footer";
 import { AboutPanel } from "./components/AboutPanel";
 import { HelpPanel } from "./components/HelpPanel";
+import { TrophyPanel } from "./components/TrophyPanel";
 import { CountyStats } from "./components/CountyStats";
 import { MapLegend } from "./components/MapLegend";
 import { MobileShell } from "./components/MobileShell";
@@ -21,7 +22,7 @@ import { parseDeepLink, writeDeepLink } from "./lib/url";
 import { usePrefersReducedMotion } from "./lib/useReducedMotion";
 import { filtersActive } from "./map/filters";
 import { DEFAULT_FILTERS } from "./types";
-import type { CountyTileProps, Filters, LoanRecord, LoanTileProps } from "./types";
+import type { CityStats, CountyTileProps, Filters, LoanRecord, LoanTileProps } from "./types";
 import "./App.css";
 
 const LOANS_MIN_ZOOM = 9;
@@ -43,6 +44,7 @@ export default function App() {
   const [selectedCounty, setSelectedCounty] = useState<CountyTileProps | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [trophyOpen, setTrophyOpen] = useState(false);
   const [lastSearchResults, setLastSearchResults] = useState<LoanRecord[]>([]);
   const [zoom, setZoom] = useState(initialLink.zoom);
   const [topLoans, setTopLoans] = useState<LoanRecord[]>([]);
@@ -116,6 +118,25 @@ export default function App() {
     setSelectedCounty((current) => (current?.fips === props.fips ? null : props));
     setSelectedLoan(null);
   }, []);
+
+  const handleTrophyCounty = useCallback((county: CountyTileProps) => {
+    setSelectedCounty(county);
+    setSelectedLoan(null);
+    setTrophyOpen(false);
+  }, []);
+
+  const handleTrophyCity = useCallback((city: CityStats) => {
+    mapRef.current?.flyTo({ center: [city.lng, city.lat], zoom: 11 });
+    setTrophyOpen(false);
+  }, []);
+
+  const handleTrophyLoan = useCallback(
+    (loan: LoanRecord) => {
+      flyToAndSelect(loan);
+      setTrophyOpen(false);
+    },
+    [flyToAndSelect],
+  );
 
   const handleCloseDetail = useCallback(() => {
     setSelectedLoan(null);
@@ -228,6 +249,15 @@ export default function App() {
       <Footer onAboutClick={() => setAboutOpen(true)} />
       {aboutOpen && <AboutPanel onClose={() => setAboutOpen(false)} />}
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+      {trophyOpen && (
+        <TrophyPanel
+          onClose={() => setTrophyOpen(false)}
+          topLoans={topLoans}
+          onSelectLoan={handleTrophyLoan}
+          onSelectCounty={handleTrophyCounty}
+          onSelectCity={handleTrophyCity}
+        />
+      )}
     </>
   );
 
@@ -238,6 +268,7 @@ export default function App() {
         <MobileShell
           reducedMotion={reducedMotion}
           onHelpClick={() => setHelpOpen(true)}
+          onTrophyClick={() => setTrophyOpen(true)}
           theme={theme}
           onThemeToggle={toggleTheme}
           selectionId={selectionId}
@@ -267,6 +298,15 @@ export default function App() {
           </div>
           <div className="app-panel-actions">
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <button
+              type="button"
+              className="gear-button"
+              onClick={() => setTrophyOpen(true)}
+              aria-label="Cool stats — top counties, cities and loans"
+              title="Cool stats — top counties, cities and loans"
+            >
+              🏆
+            </button>
             <button
               type="button"
               className="gear-button"
