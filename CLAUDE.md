@@ -53,3 +53,26 @@ at 16 threads drew a 429 on every read — reporting all 9,000 freshly-uploaded
 detail shards as failed when every one had landed. `head()` retries 429 with
 backoff and the read pool is 6; a throttle is not a missing object. If a sweep
 starts reporting mass failures, check for 429 before believing it.
+
+## Public asset serving (`worker/`)
+All public reads — the frontend's tile/data fetches (`VITE_TILES_BASE_URL`,
+`VITE_DATA_BASE_URL` in Netlify) and `08_upload_r2.py`'s own `--verify` sweep
+— go through a Cloudflare Worker (`worker/worker.js`, deployed to
+`follow-the-ppp-assets.jbradner17.workers.dev`), not a raw `pub-*.r2.dev` URL.
+Worker-to-R2 traffic uses the R2 binding, not the throttled public r2.dev
+gateway, so it doesn't inherit the 429 problem above — this matters because
+r2.dev getting hammered during a traffic spike (e.g. a front-page Reddit post)
+is exactly the failure mode that would take the map down. Still $0: Workers'
+free tier is 100K requests/day, and reads through a binding don't count
+against R2 storage or incur egress charges.
+
+Deploy changes with `cd worker && npx wrangler deploy` (needs `wrangler login`
+once per machine). **Range requests are the entire reason this is a real file
+and not a two-line passthrough** — pmtiles and duckdb-wasm's Parquet reads
+both depend on them, and the R2 binding has a sharp edge here: `obj.range` is
+populated even on a plain non-range `get()` (describing the whole object as
+one range), so whether to answer `200` or `206` has to key off whether the
+*client's request* had a `Range` header, never off `obj.range`'s mere
+presence — get that wrong and every request silently becomes a 206, which
+looks fine in a browser tab and breaks pmtiles/duckdb-wasm range-pruning in
+ways that are hard to notice without checking status codes directly.

@@ -16,6 +16,9 @@ web/*.tsbuildinfo
 # Local Netlify folder
 .netlify
 
+# wrangler's local build/session cache for worker/
+worker/.wrangler
+
 # Brainstorming mockups (visual companion)
 .superpowers/
 

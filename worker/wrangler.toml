@@ -1,0 +1,12 @@
+name = "follow-the-ppp-assets"
+main = "worker.js"
+compatibility_date = "2024-09-30"
+
+# Public asset proxy for the follow-the-ppp R2 bucket, replacing the
+# throttled pub-*.r2.dev URL. Worker-to-R2 traffic goes over the binding
+# below, not the public r2.dev gateway, so it isn't subject to r2.dev's
+# rate limiting — see CLAUDE.md for why that mattered (a Reddit-traffic
+# spike hitting 9,000+ objects on r2.dev draws 429s).
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "follow-the-ppp"

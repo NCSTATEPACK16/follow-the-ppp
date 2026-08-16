@@ -32,16 +32,19 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
-# r2.dev is rate limited. 16 workers against the 9,000 detail shards drew a
-# 429 on every single read; 6 with the backoff in head() sweeps them cleanly.
-# Uploads go to the S3 API, which is not the throttled surface, so they keep a
-# wider pool.
+# r2.dev is rate limited — 16 workers against the 9,000 detail shards drew a
+# 429 on every single read. That's why public reads (this verify sweep, and
+# the frontend's own fetches) go through the Worker at PUBLIC_BASE instead of
+# a raw pub-*.r2.dev URL: Worker-to-R2 traffic uses the binding, not the
+# throttled public gateway, so a Reddit-sized spike doesn't 429 (worker/).
+# Uploads go to the S3 API regardless, which was never the throttled surface,
+# so they keep a wider pool.
 WORKERS = 6
 UPLOAD_WORKERS = 16
 
 TILES = 'tiles'
 INTERIM = 'data/interim'
-PUBLIC_BASE = 'https://pub-bd48571a78b04fb6b629d061a4cd1a72.r2.dev'
+PUBLIC_BASE = 'https://follow-the-ppp-assets.jbradner17.workers.dev'
 
 IMMUTABLE = 'public, max-age=31536000, immutable'
 HOURLY = 'public, max-age=3600'
